@@ -26,7 +26,31 @@ go.work.sum
 
 # env file
 .env
+.env*
+
+# configs
+/config.json
+/values.yaml
+/kubeconfig
 
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# binaries
+/air
+/gin-bin
+/cnpg-broker
+/broker
+
+# air tmp dir
+/tmp
+
+# archives
+*.zip
+*.tgz
+*.gz
+*.tar
+
+# node_modules for prettier formatting
+/node_modules

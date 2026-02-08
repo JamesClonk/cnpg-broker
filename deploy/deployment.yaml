@@ -1,0 +1,66 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cnpg-broker
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cnpg-broker
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["postgresql.cnpg.io"]
+  resources: ["clusters"]
+  verbs: ["get", "list", "create", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cnpg-broker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cnpg-broker
+subjects:
+- kind: ServiceAccount
+  name: cnpg-broker
+  namespace: default
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnpg-broker
+spec:
+  selector:
+    app: cnpg-broker
+  ports:
+  - port: 80
+    targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cnpg-broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cnpg-broker
+  template:
+    metadata:
+      labels:
+        app: cnpg-broker
+    spec:
+      serviceAccountName: cnpg-broker
+      containers:
+      - name: broker
+        image: cnpg-broker:latest
+        ports:
+        - containerPort: 8080
