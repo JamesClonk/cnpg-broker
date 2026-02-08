@@ -13,25 +13,42 @@ type Catalog struct {
 }
 
 type Service struct {
-	ID          string `yaml:"id"`
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Bindable    bool   `yaml:"bindable"`
-	Plans       []Plan `yaml:"plans"`
+	ID                   string          `yaml:"id"`
+	Name                 string          `yaml:"name"`
+	Description          string          `yaml:"description"`
+	Bindable             bool            `yaml:"bindable"`
+	InstancesRetrievable bool            `yaml:"instances_retrievable"`
+	BindingsRetrievable  bool            `yaml:"bindings_retrievable"`
+	PlanUpdateable       bool            `yaml:"plan_updateable"`
+	Tags                 []string        `yaml:"tags"`
+	Metadata             ServiceMetadata `yaml:"metadata"`
+	Plans                []Plan          `yaml:"plans"`
+}
+
+type ServiceMetadata struct {
+	DisplayName         string `yaml:"displayName"`
+	ImageUrl            string `yaml:"imageUrl"`
+	LongDescription     string `yaml:"longDescription"`
+	ProviderDisplayName string `yaml:"providerDisplayName"`
+	DocumentationUrl    string `yaml:"documentationUrl"`
+	SupportUrl          string `yaml:"supportUrl"`
 }
 
 type Plan struct {
 	ID          string       `yaml:"id"`
 	Name        string       `yaml:"name"`
 	Description string       `yaml:"description"`
+	Free        bool         `yaml:"free"`
 	Metadata    PlanMetadata `yaml:"metadata"`
 }
 
 type PlanMetadata struct {
-	Instances int64  `yaml:"instances"`
-	CPU       string `yaml:"cpu"`
-	Memory    string `yaml:"memory"`
-	Storage   string `yaml:"storage"`
+	Instances        int64  `yaml:"instances"`
+	CPU              string `yaml:"cpu"`
+	Memory           string `yaml:"memory"`
+	Storage          string `yaml:"storage"`
+	HighAvailability bool   `yaml:"highAvailability"`
+	SLA              bool   `yaml:"sla"`
 }
 
 func init() {
