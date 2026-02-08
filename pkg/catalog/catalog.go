@@ -21,13 +21,17 @@ type Service struct {
 }
 
 type Plan struct {
-	ID          string `yaml:"id"`
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Instances   int64  `yaml:"instances"`
-	CPU         string `yaml:"cpu"`
-	Memory      string `yaml:"memory"`
-	Disk        string `yaml:"disk"`
+	ID          string       `yaml:"id"`
+	Name        string       `yaml:"name"`
+	Description string       `yaml:"description"`
+	Metadata    PlanMetadata `yaml:"metadata"`
+}
+
+type PlanMetadata struct {
+	Instances int64  `yaml:"instances"`
+	CPU       string `yaml:"cpu"`
+	Memory    string `yaml:"memory"`
+	Storage   string `yaml:"storage"`
 }
 
 func init() {
@@ -48,7 +52,7 @@ func PlanSpec(planId string) (int64, string, string, string) {
 	for _, svc := range catalog.Services {
 		for _, plan := range svc.Plans {
 			if plan.ID == planId {
-				return plan.Instances, plan.CPU, plan.Memory, plan.Disk
+				return plan.Metadata.Instances, plan.Metadata.CPU, plan.Metadata.Memory, plan.Metadata.Storage
 			}
 		}
 	}

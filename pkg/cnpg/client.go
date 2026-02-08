@@ -57,7 +57,7 @@ func (c *Client) CreateCluster(ctx context.Context, name, planId string) (string
 		return "", err
 	}
 
-	instances, cpu, memory, disk := catalog.PlanSpec(planId)
+	instances, cpu, memory, storage := catalog.PlanSpec(planId)
 	cluster := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "postgresql.cnpg.io/v1",
@@ -69,7 +69,7 @@ func (c *Client) CreateCluster(ctx context.Context, name, planId string) (string
 			"spec": map[string]any{
 				"instances": instances,
 				"storage": map[string]any{
-					"size": disk,
+					"size": storage,
 				},
 				"resources": map[string]any{
 					"requests": map[string]any{

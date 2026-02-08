@@ -3,51 +3,112 @@ services:
   name: postgresql-dev-db
   description: CloudNativePG PostgreSQL development database
   bindable: true
+  instances_retrievable: true
+  bindings_retrievable: true
+  plan_updateable: false
+  tags:
+  - cnpg
+  - cloudnativepg
+  - postgres
+  - postgresql
+  - database
+  - relational
+  - rdbms
+  metadata:
+    displayName: CloudNativePG - development databases
+    imageUrl: https://cloudnative-pg.io/logo/large_logo.svg
+    longDescription: CloudNativePG is the Kubernetes operator that covers the full lifecycle of a highly available PostgreSQL database cluster with a primary/standby architecture, using native streaming replication.
+    providerDisplayName: CloudNativePG
+    documentationUrl: https://cloudnative-pg.io/docs/
+    supportUrl: https://cloudnative-pg.io/
   plans:
   - id: 22cedd15-900f-4625-9f10-a57f43c64585
     name: dev-small
     description: 1 instance, 0.5 CPU, 512MB RAM, 10GB storage, no SLA
-    instances: 1
-    cpu: 500m
-    memory: 512Mi
-    disk: 10Gi
+    free: false
+    metadata:
+      instances: 1
+      cpu: 500m
+      memory: 512Mi
+      storage: 10Gi
+      highAvailability: false
+      sla: false
   - id: de7acc66-412d-41c0-bf3e-763307a86c38
     name: dev-medium
     description: 1 instance, 2 CPU, 2GB RAM, 50GB storage, no SLA
-    instances: 1
-    cpu: "2"
-    memory: 2Gi
-    disk: 50Gi
+    free: false
+    metadata:
+      instances: 1
+      cpu: "2"
+      memory: 2Gi
+      storage: 50Gi
+      highAvailability: false
+      sla: false
   - id: bfefc341-29a1-48e5-a6be-690f44aabbb3
     name: dev-large
     description: 1 instance, 4 CPU, 4GB RAM, 250GB storage, no SLA
-    instances: 1
-    cpu: "4"
-    memory: 4Gi
-    disk: 250Gi
+    free: false
+    metadata:
+      instances: 1
+      cpu: "4"
+      memory: 4Gi
+      storage: 250Gi
+      highAvailability: false
+      sla: false
+
 - id: a651d10f-25ab-4a75-99a6-520c0abbe2ae
   name: postgresql-ha-cluster
   description: CloudNativePG PostgreSQL database cluster
   bindable: true
+  instances_retrievable: true
+  bindings_retrievable: true
+  plan_updateable: false
+  tags:
+  - cnpg
+  - cloudnativepg
+  - postgres
+  - postgresql
+  - database
+  - relational
+  - rdbms
+  metadata:
+    displayName: CloudNativePG - database clusters
+    imageUrl: https://cloudnative-pg.io/logo/large_logo.svg
+    longDescription: CloudNativePG is the Kubernetes operator that covers the full lifecycle of a highly available PostgreSQL database cluster with a primary/standby architecture, using native streaming replication.
+    providerDisplayName: CloudNativePG
+    documentationUrl: https://cloudnative-pg.io/docs/
+    supportUrl: https://cloudnative-pg.io/
   plans:
   - id: 9098f862-fb7e-42b5-9e8c-94c49e231cc3
     name: small
     description: 2 instances, 1 CPU, 1GB RAM, 10GB storage
-    instances: 3
-    cpu: "1"
-    memory: 1Gi
-    disk: 10Gi
+    free: false
+    metadata:
+      instances: 2
+      cpu: "1"
+      memory: 1Gi
+      storage: 10Gi
+      highAvailability: true
+      sla: true
   - id: 31aaeae1-4716-4631-b43e-93144e689427
     name: medium
     description: 3 instances, 2 CPU, 2GB RAM, 50GB storage
-    instances: 3
-    cpu: "2"
-    memory: 2Gi
-    disk: 50Gi
+    free: false
+    metadata:
+      instances: 3
+      cpu: "2"
+      memory: 2Gi
+      storage: 50Gi
+      highAvailability: true
+      sla: true
   - id: b870dc08-1110-4bf8-ac82-e8a9d2bdd5c7
     name: large
     description: 3 instances, 4 CPU, 4GB RAM, 250GB storage
-    instances: 3
-    cpu: "4"
-    memory: 4Gi
-    disk: 250Gi
+    free: false
+    metadata:
+      instances: 3
+      cpu: "4"
+      memory: 4Gi
+      storage: 250Gi
+      highAvailability: true
+      sla: true
