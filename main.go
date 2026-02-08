@@ -2,11 +2,9 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 
-	"github.com/cnpg-broker/pkg/broker"
-	"github.com/gorilla/mux"
+	"github.com/cnpg-broker/pkg/router"
 )
 
 func main() {
@@ -15,15 +13,9 @@ func main() {
 		port = "8080"
 	}
 
-	b := broker.NewBroker()
-	r := mux.NewRouter()
+	// setup http router
+	r := router.New()
 
-	r.HandleFunc("/v2/catalog", b.GetCatalog).Methods("GET")
-	r.HandleFunc("/v2/service_instances/{instance_id}", b.Provision).Methods("PUT")
-	r.HandleFunc("/v2/service_instances/{instance_id}", b.Deprovision).Methods("DELETE")
-	r.HandleFunc("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", b.Bind).Methods("PUT")
-	r.HandleFunc("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", b.Unbind).Methods("DELETE")
-
-	log.Printf("CNPG Service Broker listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	// serve API & UI
+	log.Fatalf("failed to start HTTP router: %v", r.Start(8080)) // TODO: read from port/config above
 }

@@ -12,17 +12,17 @@ func GetCatalog() map[string]any {
 					{
 						"id":          "22cedd15-900f-4625-9f10-a57f43c64585",
 						"name":        "dev-small",
-						"description": "1 instance, 10Gi storage, no SLA",
+						"description": "1 instance, 0.5 CPU, 512MB RAM, 10GB storage, no SLA",
 					},
 					{
 						"id":          "de7acc66-412d-41c0-bf3e-763307a86c38",
 						"name":        "dev-medium",
-						"description": "1 instance, 50Gi storage, no SLA",
+						"description": "1 instance, 2 CPU, 2GB RAM, 50GB storage, no SLA",
 					},
 					{
 						"id":          "bfefc341-29a1-48e5-a6be-690f44aabbb3",
 						"name":        "dev-large",
-						"description": "1 instance, 250Gi storage, no SLA",
+						"description": "1 instance, 4 CPU, 4GB RAM, 250GB storage, no SLA",
 					},
 				},
 			},
@@ -35,17 +35,17 @@ func GetCatalog() map[string]any {
 					{
 						"id":          "9098f862-fb7e-42b5-9e8c-94c49e231cc3",
 						"name":        "small",
-						"description": "2 instances, 10Gi storage",
+						"description": "2 instances, 1 CPU, 1GB RAM, 10GB storage",
 					},
 					{
 						"id":          "31aaeae1-4716-4631-b43e-93144e689427",
 						"name":        "medium",
-						"description": "3 instances, 50Gi storage",
+						"description": "3 instances, 2 CPU, 2GB RAM, 50GB storage",
 					},
 					{
 						"id":          "b870dc08-1110-4bf8-ac82-e8a9d2bdd5c7",
 						"name":        "large",
-						"description": "3 instances, 250Gi storage",
+						"description": "3 instances, 4 CPU, 4GB RAM, 250GB storage",
 					},
 				},
 			},

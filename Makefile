@@ -42,8 +42,8 @@ test:
 .PHONY: install-air
 ## install-air: installs air hot-reloader
 install-air:
-	go install github.com/cosmtrek/air@v1.64.5
-	#go install github.com/cosmtrek/air@latest
+	go install github.com/air-verse/air@v1.64.5
+	#go install github.com/air-verse/air@latest
 
 .PHONY: cleanup
 cleanup: docker-cleanup
