@@ -1,12 +1,21 @@
-FROM golang:1.22-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
+# builder image
+FROM golang:1.25-alpine AS builder
+WORKDIR /go/src/github.com/JamesClonk/cnpg-broker
 COPY . .
-RUN CGO_ENABLED=0 go build -o broker .
+RUN CGO_ENABLED=0 GOOS=linux go build -o cnpg-broker .
 
-FROM alpine:3.19
+# app image
+FROM alpine:3.23
+LABEL author="JamesClonk <jamesclonk@jamesclonk.ch>"
+
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/broker /broker
+
+ENV PATH=$PATH:/app
+WORKDIR /app
+
+COPY public ./public/
+COPY static ./static/
+COPY --from=builder /go/src/github.com/JamesClonk/cnpg-broker/cnpg-broker ./cnpg-broker
+
 EXPOSE 8080
-ENTRYPOINT ["/broker"]
+CMD ["./cnpg-broker"]
