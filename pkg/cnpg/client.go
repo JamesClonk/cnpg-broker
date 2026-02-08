@@ -57,26 +57,26 @@ func (c *Client) CreateCluster(ctx context.Context, name, planId string) (string
 		return "", err
 	}
 
-	instances, cpu, memory, disk := catalog.PlanToSpec(planId)
+	instances, cpu, memory, disk := catalog.PlanSpec(planId)
 	cluster := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "postgresql.cnpg.io/v1",
 			"kind":       "Cluster",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      name,
 				"namespace": namespace,
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"instances": instances,
-				"storage": map[string]interface{}{
+				"storage": map[string]any{
 					"size": disk,
 				},
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
+				"resources": map[string]any{
+					"requests": map[string]any{
 						"cpu":    cpu,
 						"memory": memory,
 					},
-					"limits": map[string]interface{}{
+					"limits": map[string]any{
 						"cpu":    cpu,
 						"memory": memory,
 					},
@@ -104,6 +104,7 @@ func (c *Client) GetCredentials(ctx context.Context, name, namespace string) (ma
 
 	host := fmt.Sprintf("%s-rw.%s.svc", name, namespace)
 
+	// TODO: fix this entire func, Claude just produced hilarious garbage! 🤣
 	return map[string]string{
 		"host":     host,
 		"port":     "5432",
