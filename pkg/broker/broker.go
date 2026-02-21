@@ -40,14 +40,12 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	url, err := b.client.CreateCluster(context.Background(), instanceId, req.PlanID)
+	_, err := b.client.CreateCluster(context.Background(), instanceId, req.PlanID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, map[string]any{
-		"dashboard_url": url,
-	})
+	return c.JSON(http.StatusCreated, map[string]any{})
 }
 
 func (b *Broker) GetInstance(c echo.Context) error {
@@ -57,7 +55,7 @@ func (b *Broker) GetInstance(c echo.Context) error {
 	}
 
 	// HTTP 410 must be returned if Service Instance does not exist
-	url, err := b.client.GetCluster(context.Background(), instanceId)
+	_, err := b.client.GetCluster(context.Background(), instanceId)
 	if err != nil {
 		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", instanceId)) {
 			return c.JSON(http.StatusNotFound, map[string]any{})
@@ -66,9 +64,7 @@ func (b *Broker) GetInstance(c echo.Context) error {
 		}
 	}
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"dashboard_url": url,
-	})
+	return c.JSON(http.StatusOK, map[string]any{})
 }
 
 func (b *Broker) DeprovisionInstance(c echo.Context) error {
