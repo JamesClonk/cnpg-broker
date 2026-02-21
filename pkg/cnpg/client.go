@@ -129,7 +129,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 				"apiVersion": "postgresql.cnpg.io/v1",
 				"kind":       "Pooler",
 				"metadata": map[string]any{
-					"name":      instanceId,
+					"name":      fmt.Sprintf("%s-pooler", instanceId),
 					"namespace": instanceId,
 				},
 				"spec": map[string]any{
@@ -165,7 +165,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 					},
 				},
 				Selector: map[string]string{
-					"cnpg.io/poolerName": instanceId,
+					"cnpg.io/poolerName": fmt.Sprintf("%s-pooler", instanceId),
 				},
 			},
 		}
