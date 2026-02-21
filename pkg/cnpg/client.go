@@ -92,17 +92,26 @@ func (c *Client) CreateCluster(ctx context.Context, name, planId string) (string
 	return namespace, nil
 }
 
+func (c *Client) GetCluster(ctx context.Context, namespace string) (string, error) {
+	_, err := c.dynamic.Resource(clusterResource).Namespace(namespace).Get(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	// TODO: return actual cluster here
+	return namespace, nil
+}
+
 func (c *Client) DeleteCluster(ctx context.Context, namespace string) error {
 	return c.clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
 }
 
-func (c *Client) GetCredentials(ctx context.Context, name, namespace string) (map[string]string, error) {
-	_, err := c.dynamic.Resource(clusterResource).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+func (c *Client) GetCredentials(ctx context.Context, namespace string) (map[string]string, error) {
+	_, err := c.dynamic.Resource(clusterResource).Namespace(namespace).Get(ctx, namespace, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	host := fmt.Sprintf("%s-rw.%s.svc", name, namespace)
+	host := fmt.Sprintf("%s-rw.%s.svc", namespace, namespace)
 
 	// TODO: fix this entire func, Claude just produced hilarious garbage! 🤣
 	return map[string]string{
@@ -110,7 +119,7 @@ func (c *Client) GetCredentials(ctx context.Context, name, namespace string) (ma
 		"port":     "5432",
 		"database": "app",
 		"username": "app",
-		"password": fmt.Sprintf("secret://%s-app", name),
+		"password": fmt.Sprintf("secret://%s-app", namespace),
 		"uri":      fmt.Sprintf("postgresql://app@%s:5432/app", host),
 	}, nil
 }

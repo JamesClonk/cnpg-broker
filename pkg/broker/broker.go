@@ -23,13 +23,16 @@ func (b *Broker) GetCatalog(c echo.Context) error {
 	return c.JSON(http.StatusOK, catalog.GetCatalog())
 }
 
-func (b *Broker) Provision(c echo.Context) error {
+func (b *Broker) ProvisionInstance(c echo.Context) error {
 	instanceID := c.Param("instance_id")
+	if instanceID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
+	}
 
 	var req struct {
-		ServiceID string                 `json:"service_id"`
-		PlanID    string                 `json:"plan_id"`
-		Context   map[string]interface{} `json:"context"`
+		ServiceID string         `json:"service_id"`
+		PlanID    string         `json:"plan_id"`
+		Context   map[string]any `json:"context"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -40,43 +43,61 @@ func (b *Broker) Provision(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, map[string]interface{}{
+	return c.JSON(http.StatusCreated, map[string]any{
 		"dashboard_url": namespace,
 	})
 }
 
-func (b *Broker) Deprovision(c echo.Context) error {
-	namespace := c.QueryParam("namespace")
-	if namespace == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "namespace required"})
+func (b *Broker) GetInstance(c echo.Context) error {
+	instanceID := c.Param("instance_id")
+	if instanceID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
 	}
 
-	err := b.client.DeleteCluster(context.Background(), namespace)
+	cluster, err := b.client.GetCluster(context.Background(), instanceID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{})
+	return c.JSON(http.StatusOK, map[string]any{
+		"dashboard_url": cluster,
+	})
 }
 
-func (b *Broker) Bind(c echo.Context) error {
+func (b *Broker) DeprovisionInstance(c echo.Context) error {
 	instanceID := c.Param("instance_id")
-
-	namespace := c.QueryParam("namespace")
-	if namespace == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "namespace required"})
+	if instanceID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
 	}
 
-	creds, err := b.client.GetCredentials(context.Background(), instanceID, namespace)
+	err := b.client.DeleteCluster(context.Background(), instanceID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, map[string]interface{}{
+	return c.JSON(http.StatusOK, map[string]any{})
+}
+
+func (b *Broker) BindInstance(c echo.Context) error {
+	instanceID := c.Param("instance_id")
+	if instanceID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
+	}
+
+	creds, err := b.client.GetCredentials(context.Background(), instanceID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
 		"credentials": creds,
 	})
 }
 
-func (b *Broker) Unbind(c echo.Context) error {
+func (b *Broker) GetBinding(c echo.Context) error {
+	return b.BindInstance(c)
+}
+
+func (b *Broker) UnbindInstance(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{})
 }

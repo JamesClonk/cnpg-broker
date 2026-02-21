@@ -39,12 +39,19 @@ test:
 	@mise trust --all || true
 	GOARCH=amd64 GOOS=linux go test -v -race ./...
 
+.PHONY: init
+## init: sets up go modules
+init:
+	@echo "Setting up modules ..."
+	@go mod init 2>/dev/null; go mod tidy && go mod vendor
+
 .PHONY: install-air
 ## install-air: installs air hot-reloader
 install-air:
 	go install github.com/air-verse/air@v1.64.5
 	#go install github.com/air-verse/air@latest
 
+#=======================================================================================================================
 .PHONY: kind
 ## kind: creates kind cluster and installs/updates cert-manager, cnpg.io and barman-plugin
 kind:
@@ -67,3 +74,23 @@ cleanup: docker-cleanup
 ## docker-cleanup: cleans up local docker images and volumes
 docker-cleanup:
 	docker system prune --volumes -a
+
+#=======================================================================================================================
+.PHONY: provision
+## provision: creates an example service instance
+provision:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
+		-X PUT -H "Content-Type: application/json" \
+		-d '{ "service_id":"79f7fb16-c95d-4210-8930-1c758648327e", "plan_id":"22cedd15-900f-4625-9f10-a57f43c64585" }'
+
+.PHONY: fetch-instance
+## fetch-instance: queries example service instance
+fetch-instance:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
+		-X GET
+
+.PHONY: deprovision
+## deprovision: deletes example service instance
+deprovision:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
+		-X DELETE

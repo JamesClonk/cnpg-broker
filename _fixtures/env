@@ -1,0 +1,6 @@
+export PORT=9999
+
+export BROKER_LOG_LEVEL="debug"
+export BROKER_LOG_TIMESTAMP=true
+export BROKER_USERNAME="disco"
+export BROKER_PASSWORD="dingo"
