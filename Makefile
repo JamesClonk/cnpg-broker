@@ -69,11 +69,15 @@ kind:
 	kubectl rollout status deployment -n cnpg-system barman-cloud --watch=true --timeout=60s
 
 .PHONY: cleanup
-cleanup: docker-cleanup
+cleanup: kind-cleanup docker-cleanup
 .PHONY: docker-cleanup
 ## docker-cleanup: cleans up local docker images and volumes
 docker-cleanup:
 	docker system prune --volumes -a
+.PHONY: kind-cleanup
+## kind-cleanup: cleans up local kind cluster
+kind-cleanup:
+	kind delete cluster --name cnpg
 
 #=======================================================================================================================
 .PHONY: provision
@@ -81,16 +85,35 @@ docker-cleanup:
 provision:
 	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
 		-X PUT -H "Content-Type: application/json" \
-		-d '{ "service_id":"79f7fb16-c95d-4210-8930-1c758648327e", "plan_id":"22cedd15-900f-4625-9f10-a57f43c64585" }'
+		-d '{ "service_id":"79f7fb16-c95d-4210-8930-1c758648327e", "plan_id":"22cedd15-900f-4625-9f10-a57f43c64585" }' \
+		| jq .
 
 .PHONY: fetch-instance
 ## fetch-instance: queries example service instance
 fetch-instance:
 	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
-		-X GET
+		-X GET | jq .
 
 .PHONY: deprovision
 ## deprovision: deletes example service instance
 deprovision:
 	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
+		-X DELETE
+
+.PHONY: bind-instance
+## bind-instance: creates an example service instance binding
+bind-instance:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc/service_bindings/db59931a-70a6-43c1-8885-b0c6b1c194d4 \
+		-X PUT -H "Content-Type: application/json" | jq .
+
+.PHONY: fetch-binding
+## fetch-binding: queries example service instance binding
+fetch-binding:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc/service_bindings/db59931a-70a6-43c1-8885-b0c6b1c194d4 \
+		-X GET | jq .
+
+.PHONY: delete-binding
+## delete-binding: deletes example service instance binding
+delete-binding:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc/service_bindings/db59931a-70a6-43c1-8885-b0c6b1c194d4  \
 		-X DELETE

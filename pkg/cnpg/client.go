@@ -104,20 +104,30 @@ func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
 }
 
 func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[string]string, error) {
-	_, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
+	secretName := fmt.Sprintf("%s-app", instanceId)
+	secret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	host := fmt.Sprintf("%s-rw.%s.svc", instanceId, instanceId)
+	host := string(secret.Data["host"])
+	port := string(secret.Data["port"])
+	username := string(secret.Data["username"])
+	password := string(secret.Data["password"])
+	database := string(secret.Data["dbname"])
+	fqdnUri := string(secret.Data["fqdn-uri"])
+	jdbcUri := string(secret.Data["fqdn-jdbc-uri"])
 
-	// TODO: fix this entire func, Claude just produced hilarious garbage! 🤣
 	return map[string]string{
-		"host":     host,
-		"port":     "5432",
-		"database": "app",
-		"username": "app",
-		"password": fmt.Sprintf("secret://%s-app", instanceId),
-		"uri":      fmt.Sprintf("postgresql://app@%s:5432/app", host),
+		"host":        host,
+		"port":        port,
+		"database":    database,
+		"username":    username,
+		"password":    password,
+		"uri":         fqdnUri,
+		"jdbc_uri":    jdbcUri,
+		"ro_host":     fmt.Sprintf("%s-ro", instanceId),
+		"ro_uri":      fmt.Sprintf("postgresql://%s:%s@%s-ro.%s.svc.cluster.local:%s/%s", username, password, instanceId, instanceId, port, database),
+		"ro_jdbc_uri": fmt.Sprintf("jdbc:postgresql://%s-ro.%s.svc.cluster.local:%s/%s?password=%s&user=%s", instanceId, instanceId, port, database, password, username),
 	}, nil
 }
