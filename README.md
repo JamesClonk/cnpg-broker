@@ -33,11 +33,3 @@ kubectl apply -f deploy/
 
 - Kubernetes cluster with a recent version of the cnpg.io operator installed, see [install and upgrade guide](https://cloudnative-pg.io/docs/1.28/installation_upgrade)
 - RBAC permissions to manage cnpg.io custom resources
-
-## TODO
-
-- Create 1 LB service for each cluster
-- Create a pooler for each HA cluster
-- Have the same LB also point to the pooler, but with another port
-- Have Bindings/Credentials contain the TLS certs so connections can use them if wanted
-
