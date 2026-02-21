@@ -99,7 +99,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 	// LoadBalancer service(s), create our own because we'll create multiple of them, with different ports
 	lbSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-rw", instanceId),
+			Name:      fmt.Sprintf("%s-lb-rw", instanceId),
 			Namespace: instanceId,
 		},
 		Spec: corev1.ServiceSpec{
@@ -112,8 +112,8 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 				},
 			},
 			Selector: map[string]string{
-				"postgresql": instanceId,
-				"role":       "primary",
+				"cnpg.io/cluster":      instanceId,
+				"cnpg.io/instanceRole": "primary",
 			},
 		},
 	}
@@ -152,7 +152,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 		// LoadBalancer service for Pooler
 		lbSvc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-pooler", instanceId),
+				Name:      fmt.Sprintf("%s-lb-pooler", instanceId),
 				Namespace: instanceId,
 			},
 			Spec: corev1.ServiceSpec{
@@ -227,7 +227,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 	}
 
 	// add LB and Pooler endpoints
-	lbSvcName := fmt.Sprintf("%s-rw", instanceId)
+	lbSvcName := fmt.Sprintf("%s-lb-rw", instanceId)
 	lbSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx, lbSvcName, metav1.GetOptions{})
 	if err == nil && len(lbSvc.Status.LoadBalancer.Ingress) > 0 {
 		lbHost := lbSvc.Status.LoadBalancer.Ingress[0].IP
@@ -239,7 +239,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		credentials["lb_jdbc_uri"] = fmt.Sprintf("jdbc:postgresql://%s:5432/%s?password=%s&user=%s", lbHost, database, username, password)
 
 		// add Pooler LB if it exists
-		poolerSvcName := fmt.Sprintf("%s-pooler", instanceId)
+		poolerSvcName := fmt.Sprintf("%s-lb-pooler", instanceId)
 		poolerSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx, poolerSvcName, metav1.GetOptions{})
 		if err == nil && len(poolerSvc.Status.LoadBalancer.Ingress) > 0 {
 			lbHost := poolerSvc.Status.LoadBalancer.Ingress[0].IP
