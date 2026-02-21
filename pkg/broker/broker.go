@@ -25,7 +25,7 @@ func (b *Broker) GetCatalog(c echo.Context) error {
 
 func (b *Broker) ProvisionInstance(c echo.Context) error {
 	instanceID := c.Param("instance_id")
-	if instanceID == "" {
+	if len(instanceID) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
 	}
 
@@ -50,7 +50,7 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 
 func (b *Broker) GetInstance(c echo.Context) error {
 	instanceID := c.Param("instance_id")
-	if instanceID == "" {
+	if len(instanceID) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
 	}
 
@@ -66,7 +66,7 @@ func (b *Broker) GetInstance(c echo.Context) error {
 
 func (b *Broker) DeprovisionInstance(c echo.Context) error {
 	instanceID := c.Param("instance_id")
-	if instanceID == "" {
+	if len(instanceID) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
 	}
 
@@ -80,7 +80,7 @@ func (b *Broker) DeprovisionInstance(c echo.Context) error {
 
 func (b *Broker) BindInstance(c echo.Context) error {
 	instanceID := c.Param("instance_id")
-	if instanceID == "" {
+	if len(instanceID) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "instance_id required"})
 	}
 
