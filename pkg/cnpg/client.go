@@ -218,6 +218,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 	}
 
 	// get TLS certificates
+	// TODO: this needs fixing, we need to collect a mix of *-ca, *-server and *-pooler certs!
 	tlsSecretName := fmt.Sprintf("%s-ca", instanceId)
 	tlsSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, tlsSecretName, metav1.GetOptions{})
 	if err == nil {
