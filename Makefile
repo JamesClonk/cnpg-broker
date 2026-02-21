@@ -45,6 +45,22 @@ install-air:
 	go install github.com/air-verse/air@v1.64.5
 	#go install github.com/air-verse/air@latest
 
+.PHONY: kind
+## kind: creates kind cluster and installs/updates cert-manager, cnpg.io and barman-plugin
+kind:
+	@kind get clusters | grep -q cnpg || kind create cluster --name cnpg
+	kubectl config use-context kind-cnpg
+	@echo " "
+	@kubectl apply --server-side -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.yaml
+	@kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.28/releases/cnpg-1.28.1.yaml
+	@kubectl apply --server-side -f https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.11.0/manifest.yaml
+	@echo " "
+	kubectl rollout status deployment -n cert-manager cert-manager --watch=true --timeout=60s
+	@echo " "
+	kubectl rollout status deployment -n cnpg-system cnpg-controller-manager --watch=true --timeout=60s
+	@echo " "
+	kubectl rollout status deployment -n cnpg-system barman-cloud --watch=true --timeout=60s
+
 .PHONY: cleanup
 cleanup: docker-cleanup
 .PHONY: docker-cleanup
