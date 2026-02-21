@@ -85,7 +85,7 @@ kind-cleanup:
 provision:
 	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
 		-X PUT -H "Content-Type: application/json" \
-		-d '{ "service_id":"79f7fb16-c95d-4210-8930-1c758648327e", "plan_id":"22cedd15-900f-4625-9f10-a57f43c64585" }' \
+		-d '{ "service_id":"a651d10f-25ab-4a75-99a6-520c0abbe2ae", "plan_id":"9098f862-fb7e-42b5-9e8c-94c49e231cc3" }' \
 		| jq .
 
 .PHONY: fetch-instance
