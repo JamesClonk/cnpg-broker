@@ -47,12 +47,11 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 	}
 
 	if err := validation.ValidateServiceID(req.ServiceID); err != nil {
-		logger.Warn("invalid service_id for %s: %v", instanceId, err)
+		logger.Warn("invalid service_id [%s] for %s: %v", req.ServiceID, instanceId, err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-
 	if err := validation.ValidatePlanID(req.ServiceID, req.PlanID); err != nil {
-		logger.Warn("invalid plan_id for %s: %v", instanceId, err)
+		logger.Warn("invalid plan_id [%s] for %s: %v", req.PlanID, instanceId, err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
@@ -60,16 +59,17 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 	if err == nil {
 		logger.Info("instance %s already exists, checking compatibility", instanceId)
 
+		// TODO: also compare CPU, Memory and Storage to "existing", must add those fields to GetCluster!
 		instances, _, _, _ := catalog.PlanSpec(req.PlanID)
 		if existing.Instances == instances {
-			logger.Info("instance %s already provisioned with matching plan", instanceId)
+			logger.Info("instance %s already provisioned with matching t-shirt size", instanceId)
 			return c.JSON(http.StatusOK, map[string]any{
 				"instance_id": instanceId,
 			})
 		} else {
-			logger.Warn("instance %s exists but with different plan", instanceId)
+			logger.Warn("instance %s exists but with different t-shirt size", instanceId)
 			return c.JSON(http.StatusConflict, map[string]string{
-				"error": "instance exists with different plan configuration",
+				"error": "instance exists with different configuration",
 			})
 		}
 	}
@@ -86,7 +86,9 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 	}
 
 	logger.Info("successfully provisioned instance %s", instanceId)
-	return c.JSON(http.StatusCreated, map[string]any{})
+	return c.JSON(http.StatusCreated, map[string]any{
+		"instance_id": instanceId,
+	})
 }
 
 func (b *Broker) GetInstance(c echo.Context) error {
@@ -154,7 +156,6 @@ func (b *Broker) BindInstance(c echo.Context) error {
 	}
 
 	logger.Info("creating binding %s for instance %s", bindingId, instanceId)
-
 	_, err := b.client.GetCluster(context.Background(), instanceId)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -174,7 +175,6 @@ func (b *Broker) BindInstance(c echo.Context) error {
 	}
 
 	logger.Info("successfully created binding %s for instance %s", bindingId, instanceId)
-
 	return c.JSON(http.StatusOK, map[string]any{
 		"credentials": credentials,
 	})
