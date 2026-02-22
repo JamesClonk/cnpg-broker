@@ -254,6 +254,13 @@ func (b *Broker) UpdateInstance(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	if len(existing.ServiceID) > 0 && existing.ServiceID != req.ServiceID {
+		logger.Warn("cannot change service_id for %s: %s -> %s", instanceId, existing.ServiceID, req.ServiceID)
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"error": "cannot change service_id",
+		})
+	}
+
 	newInstances, newCPU, newMemory, newStorage := catalog.PlanSpec(req.PlanID)
 	if newInstances < existing.Instances {
 		logger.Warn("cannot downgrade number of instances for %s: %d -> %d", instanceId, existing.Instances, newInstances)
