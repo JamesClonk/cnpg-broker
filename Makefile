@@ -66,7 +66,7 @@ kind:
 	@echo "Installing Longhorn ..."
 	@helm repo add longhorn https://charts.longhorn.io 2>/dev/null || true
 	@helm repo update
-	@helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace \
+	@helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.11.0 \
 		--set defaultSettings.allowVolumeCreationWithDegradedAvailability=true \
 		--set defaultSettings.defaultReplicaCount=1 \
 		--set persistence.defaultClassReplicaCount=1 \
