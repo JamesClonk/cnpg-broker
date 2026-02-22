@@ -5,7 +5,7 @@ services:
   bindable: true
   instances_retrievable: true
   bindings_retrievable: true
-  plan_updateable: false
+  plan_updateable: true
   tags:
   - cnpg
   - cloudnativepg
@@ -62,7 +62,7 @@ services:
   bindable: true
   instances_retrievable: true
   bindings_retrievable: true
-  plan_updateable: false
+  plan_updateable: true
   tags:
   - cnpg
   - cloudnativepg

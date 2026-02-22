@@ -236,9 +236,38 @@ func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
 	return c.clientset.CoreV1().Namespaces().Delete(ctx, instanceId, metav1.DeleteOptions{})
 }
 
+func (c *Client) UpdateCluster(ctx context.Context, instanceId string, instances int64, cpu, memory, storage string) error {
+	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if err := unstructured.SetNestedField(cluster.Object, instances, "spec", "instances"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(cluster.Object, cpu, "spec", "resources", "requests", "cpu"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(cluster.Object, cpu, "spec", "resources", "limits", "cpu"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(cluster.Object, memory, "spec", "resources", "requests", "memory"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(cluster.Object, memory, "spec", "resources", "limits", "memory"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(cluster.Object, storage, "spec", "storage", "size"); err != nil {
+		return err
+	}
+
+	_, err = c.dynamic.Resource(clusterResource).Namespace(instanceId).Update(ctx, cluster, metav1.UpdateOptions{})
+	return err
+}
+
 func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[string]string, error) {
 	logger.Debug("collecting credentials for instance %s", instanceId)
-	
+
 	secretName := fmt.Sprintf("%s-app", instanceId)
 	secret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {

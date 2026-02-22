@@ -94,6 +94,14 @@ fetch-instance:
 	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
 		-X GET | jq .
 
+.PHONY: update-instance
+## update-instance: updates example service instance to medium plan
+update-instance:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc \
+		-X PATCH -H "Content-Type: application/json" \
+		-d '{ "service_id":"a651d10f-25ab-4a75-99a6-520c0abbe2ae", "plan_id":"31aaeae1-4716-4631-b43e-93144e689427" }' \
+		| jq .
+
 .PHONY: deprovision
 ## deprovision: deletes example service instance
 deprovision:

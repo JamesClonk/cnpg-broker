@@ -43,6 +43,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 
 	g.GET("/catalog", h.broker.GetCatalog)
 	g.PUT("/service_instances/:instance_id", h.broker.ProvisionInstance)
+	g.PATCH("/service_instances/:instance_id", h.broker.UpdateInstance)
 	g.GET("/service_instances/:instance_id", h.broker.GetInstance)
 	g.DELETE("/service_instances/:instance_id", h.broker.DeprovisionInstance)
 	g.PUT("/service_instances/:instance_id/service_bindings/:binding_id", h.broker.BindInstance)

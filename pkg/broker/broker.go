@@ -216,3 +216,98 @@ func (b *Broker) UnbindInstance(c echo.Context) error {
 	logger.Info("unbinding %s from instance %s (no-op)", bindingId, instanceId)
 	return c.JSON(http.StatusOK, map[string]any{})
 }
+
+func (b *Broker) UpdateInstance(c echo.Context) error {
+	instanceId := c.Param("instance_id")
+
+	if err := validation.ValidateInstanceID(instanceId); err != nil {
+		logger.Warn("invalid instance_id: %v", err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	var req struct {
+		ServiceID string         `json:"service_id"`
+		PlanID    string         `json:"plan_id"`
+		Context   map[string]any `json:"context"`
+	}
+	if err := c.Bind(&req); err != nil {
+		logger.Error("failed to parse update request for %s: %v", instanceId, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	if err := validation.ValidateServiceID(req.ServiceID); err != nil {
+		logger.Warn("invalid service_id [%s] for %s: %v", req.ServiceID, instanceId, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := validation.ValidatePlanID(req.ServiceID, req.PlanID); err != nil {
+		logger.Warn("invalid plan_id [%s] for %s: %v", req.PlanID, instanceId, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	existing, err := b.client.GetCluster(context.Background(), instanceId)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			logger.Warn("attempted to update non-existent instance %s", instanceId)
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "instance not found"})
+		}
+		logger.Error("failed to get instance %s: %v", instanceId, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	newInstances, newCPU, newMemory, newStorage := catalog.PlanSpec(req.PlanID)
+	if newInstances < existing.Instances {
+		logger.Warn("cannot downgrade number of instances for %s: %d -> %d", instanceId, existing.Instances, newInstances)
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"error": "cannot decrease number of instances",
+		})
+	}
+
+	existingStorage := parseStorage(existing.Storage)
+	newStorageBytes := parseStorage(newStorage)
+	if newStorageBytes < existingStorage {
+		logger.Warn("cannot downgrade storage for %s: %s -> %s", instanceId, existing.Storage, newStorage)
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"error": "cannot decrease storage size",
+		})
+	}
+
+	logger.Info("updating instance %s to plan %s", instanceId, req.PlanID)
+	if err := b.client.UpdateCluster(context.Background(), instanceId, newInstances, newCPU, newMemory, newStorage); err != nil {
+		logger.Error("failed to update instance %s: %v", instanceId, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	logger.Info("successfully updated instance %s", instanceId)
+	return c.JSON(http.StatusOK, map[string]any{})
+}
+
+func parseStorage(storage string) int64 {
+	if storage == "" {
+		return 0
+	}
+	var multiplier int64 = 1
+	size := storage
+	if strings.HasSuffix(storage, "Gi") {
+		multiplier = 1024 * 1024 * 1024
+		size = strings.TrimSuffix(storage, "Gi")
+	} else if strings.HasSuffix(storage, "Mi") {
+		multiplier = 1024 * 1024
+		size = strings.TrimSuffix(storage, "Mi")
+	} else if strings.HasSuffix(storage, "Ki") {
+		multiplier = 1024
+		size = strings.TrimSuffix(storage, "Ki")
+	} else if strings.HasSuffix(storage, "G") {
+		multiplier = 1000 * 1000 * 1000
+		size = strings.TrimSuffix(storage, "G")
+	} else if strings.HasSuffix(storage, "M") {
+		multiplier = 1000 * 1000
+		size = strings.TrimSuffix(storage, "M")
+	} else if strings.HasSuffix(storage, "K") {
+		multiplier = 1000
+		size = strings.TrimSuffix(storage, "K")
+	}
+
+	var value int64
+	fmt.Sscanf(size, "%d", &value)
+	return value * multiplier
+}

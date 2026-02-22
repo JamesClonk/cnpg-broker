@@ -7,6 +7,7 @@ An Open Service Broker implementation for [CloudNativePG.io](https://cloudnative
 - ✅ Provision and deprovision PostgreSQL clusters via cnpg.io
 - ✅ Service binding with connection credentials
 - ✅ Multiple plans and t-shirt sizes (small, medium, large)
+- ✅ Plan updates (scale up)
 - ✅ High availability clusters with PgBouncer pooling
 - ✅ TLS certificate management
 - ✅ LoadBalancer service creation
@@ -67,6 +68,7 @@ Environment variables:
 
 - `GET /v2/catalog` - List available services and plans
 - `PUT /v2/service_instances/{instance_id}` - Provision a Postgres instance
+- `PATCH /v2/service_instances/{instance_id}` - Update instance plan (scale up only)
 - `GET /v2/service_instances/{instance_id}` - Get instance status
 - `DELETE /v2/service_instances/{instance_id}` - Deprovision instance
 - `PUT /v2/service_instances/{instance_id}/service_bindings/{binding_id}` - Create binding
@@ -97,6 +99,15 @@ HA plans include:
 - Automatic failover
 - PgBouncer connection pooling
 - LoadBalancer services
+
+### Plan Updates
+
+Plans can be updated to scale up resources:
+- **Instances**: Can only increase or stay the same (e.g., 2 → 3)
+- **Storage**: Can only increase or stay the same (e.g., 10GB → 50GB)
+- **CPU/Memory**: Can only increase or stay the same (e.g., 2 → 4)
+
+Downgrades are not supported to prevent data loss.
 
 ## Credentials
 
