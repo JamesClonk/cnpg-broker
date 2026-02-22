@@ -7,6 +7,7 @@ import (
 	"github.com/cnpg-broker/pkg/catalog"
 	"github.com/cnpg-broker/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -261,8 +262,26 @@ func (c *Client) UpdateCluster(ctx context.Context, instanceId string, instances
 		return err
 	}
 
+	// update existing Cluster
 	_, err = c.dynamic.Resource(clusterResource).Namespace(instanceId).Update(ctx, cluster, metav1.UpdateOptions{})
-	return err
+	if err != nil {
+		return err
+	}
+
+	// scale out PVC if necessary
+	pvcs, err := c.clientset.CoreV1().PersistentVolumeClaims(instanceId).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, pvc := range pvcs.Items {
+		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse(storage)
+		_, err = c.clientset.CoreV1().PersistentVolumeClaims(instanceId).Update(ctx, &pvc, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[string]string, error) {
