@@ -63,35 +63,11 @@ kind:
 	@kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.28/releases/cnpg-1.28.1.yaml
 	@kubectl apply --server-side -f https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.11.0/manifest.yaml
 	@echo " "
-	@echo "Installing Longhorn ..."
-	@helm repo add longhorn https://charts.longhorn.io 2>/dev/null || true
-	@helm repo update
-	@helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.11.0 \
-		--set defaultSettings.allowVolumeCreationWithDegradedAvailability=true \
-		--set defaultSettings.defaultReplicaCount=1 \
-		--set persistence.defaultClassReplicaCount=1 \
-		--set csi.attacherReplicaCount=1 --set csi.provisionerReplicaCount=1 \
-		--set csi.resizerReplicaCount=1 --set csi.snapshotterReplicaCount=1 \
-		--set longhornUI.replicas=1 --wait
-	@echo " "
 	kubectl rollout status deployment -n cert-manager cert-manager --watch=true --timeout=60s
 	@echo " "
 	kubectl rollout status deployment -n cnpg-system cnpg-controller-manager --watch=true --timeout=60s
 	@echo " "
 	kubectl rollout status deployment -n cnpg-system barman-cloud --watch=true --timeout=60s
-	@echo " "
-	kubectl rollout status deployment -n longhorn-system csi-attacher --watch=true --timeout=120s
-	kubectl rollout status deployment -n longhorn-system csi-provisioner --watch=true --timeout=120s
-	kubectl rollout status deployment -n longhorn-system csi-resizer --watch=true --timeout=120s
-	kubectl rollout status deployment -n longhorn-system longhorn-driver-deployer --watch=true --timeout=120s
-	kubectl rollout status deployment -n longhorn-system longhorn-ui --watch=true --timeout=120s
-	kubectl rollout status daemonset -n longhorn-system longhorn-csi-plugin --watch=true --timeout=120s
-	kubectl rollout status daemonset -n longhorn-system longhorn-manager --watch=true --timeout=120s
-	@echo " "
-	@echo "Setting Longhorn as default storage class..."
-	@kubectl patch storageclass standard -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' 2>/dev/null || true
-	@kubectl patch storageclass longhorn -p '{"allowVolumeExpansion":true}' || true
-	@kubectl patch storageclass longhorn -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
 .PHONY: cleanup
 cleanup: kind-cleanup docker-cleanup
