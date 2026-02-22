@@ -68,6 +68,9 @@ kind:
 	kubectl rollout status deployment -n cnpg-system cnpg-controller-manager --watch=true --timeout=60s
 	@echo " "
 	kubectl rollout status deployment -n cnpg-system barman-cloud --watch=true --timeout=60s
+	@echo " "
+	@echo "Enabling volume expansion on default StorageClass ..."
+	kubectl patch storageclass standard -p '{"allowVolumeExpansion": true}'
 
 .PHONY: cleanup
 cleanup: kind-cleanup docker-cleanup

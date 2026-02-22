@@ -74,7 +74,7 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 	}
 
 	logger.Info("provisioning instance %s with plan %s", instanceId, req.PlanID)
-	_, err = b.client.CreateCluster(context.Background(), instanceId, req.PlanID)
+	_, err = b.client.CreateCluster(context.Background(), instanceId, req.ServiceID, req.PlanID)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			logger.Info("instance %s was created concurrently", instanceId)
@@ -272,7 +272,7 @@ func (b *Broker) UpdateInstance(c echo.Context) error {
 	}
 
 	logger.Info("updating instance %s to plan %s", instanceId, req.PlanID)
-	if err := b.client.UpdateCluster(context.Background(), instanceId, newInstances, newCPU, newMemory, newStorage); err != nil {
+	if err := b.client.UpdateCluster(context.Background(), instanceId, req.PlanID, newInstances, newCPU, newMemory, newStorage); err != nil {
 		logger.Error("failed to update instance %s: %v", instanceId, err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

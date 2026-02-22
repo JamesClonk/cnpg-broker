@@ -53,7 +53,7 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (string, error) {
+func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planId string) (string, error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: instanceId,
@@ -73,6 +73,16 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 			"metadata": map[string]any{
 				"name":      instanceId,
 				"namespace": instanceId,
+				"labels": map[string]any{
+					"cnpg-broker.io/instance-id": instanceId,
+					"cnpg-broker.io/service-id":  serviceId,
+					"cnpg-broker.io/plan-id":     planId,
+				},
+				"annotations": map[string]any{
+					"cnpg-broker.io/instance-id": instanceId,
+					"cnpg-broker.io/service-id":  serviceId,
+					"cnpg-broker.io/plan-id":     planId,
+				},
 			},
 			"spec": map[string]any{
 				"instances": instances,
@@ -192,6 +202,16 @@ func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInf
 		Labels:     cluster.GetLabels(),
 	}
 
+	// extract annotations
+	annotations := cluster.GetAnnotations()
+	if serviceId, ok := annotations["cnpg-broker.io/service-id"]; ok {
+		info.ServiceID = serviceId
+	}
+	if planId, ok := annotations["cnpg-broker.io/plan-id"]; ok {
+		info.PlanID = planId
+	}
+
+	// extract specs
 	if spec, found, err := unstructured.NestedMap(cluster.Object, "spec"); found && err == nil {
 		if resources, found, err := unstructured.NestedMap(spec, "resources"); found && err == nil {
 			if requests, found, err := unstructured.NestedMap(resources, "requests"); found && err == nil {
@@ -237,12 +257,21 @@ func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
 	return c.clientset.CoreV1().Namespaces().Delete(ctx, instanceId, metav1.DeleteOptions{})
 }
 
-func (c *Client) UpdateCluster(ctx context.Context, instanceId string, instances int64, cpu, memory, storage string) error {
+func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, instances int64, cpu, memory, storage string) error {
 	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
+	// update plan annotation
+	annotations := cluster.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations["cnpg-broker.io/plan-id"] = planId
+	cluster.SetAnnotations(annotations)
+
+	// update specs
 	if err := unstructured.SetNestedField(cluster.Object, instances, "spec", "instances"); err != nil {
 		return err
 	}

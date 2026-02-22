@@ -2,6 +2,8 @@ package cnpg
 
 type ClusterInfo struct {
 	InstanceID string            `json:"instance_id"`
+	ServiceID  string            `json:"service_id"`
+	PlanID     string            `json:"plan_id"`
 	Namespace  string            `json:"namespace"`
 	Status     string            `json:"status"`
 	Instances  int64             `json:"instances"`
