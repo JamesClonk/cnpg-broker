@@ -13,8 +13,17 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["get", "list", "create", "delete"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
 - apiGroups: ["postgresql.cnpg.io"]
   resources: ["clusters"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["postgresql.cnpg.io"]
+  resources: ["poolers"]
   verbs: ["get", "list", "create", "delete"]
 
 ---
@@ -64,3 +73,41 @@ spec:
         image: cnpg-broker:latest
         ports:
         - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cnpg-broker
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - broker.example.com
+  rules:
+  - host: broker.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cnpg-broker
+            port:
+              number: 80

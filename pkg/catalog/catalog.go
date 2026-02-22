@@ -3,6 +3,7 @@ package catalog
 import (
 	"os"
 
+	"github.com/cnpg-broker/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -54,11 +55,12 @@ type PlanMetadata struct {
 func init() {
 	data, err := os.ReadFile("catalog.yaml")
 	if err != nil {
-		panic(err) // TODO: change to logger Fatal
+		logger.Fatal("failed to read catalog.yaml: %v", err)
 	}
 	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		panic(err) // TODO: change to logger Fatal
+		logger.Fatal("failed to parse catalog.yaml: %v", err)
 	}
+	logger.Info("loaded catalog with %d service(s)", len(catalog.Services))
 }
 
 func GetCatalog() map[string]any {
@@ -69,10 +71,14 @@ func PlanSpec(planId string) (int64, string, string, string) {
 	for _, svc := range catalog.Services {
 		for _, plan := range svc.Plans {
 			if plan.ID == planId {
-				return plan.Metadata.Instances, plan.Metadata.CPU, plan.Metadata.Memory, plan.Metadata.Storage
+				logger.Debug("found plan %s: instances=%d, cpu=%s, memory=%s, storage=%s",
+					planId, plan.Metadata.Instances, plan.Metadata.CPU,
+					plan.Metadata.Memory, plan.Metadata.Storage)
+				return plan.Metadata.Instances, plan.Metadata.CPU,
+					plan.Metadata.Memory, plan.Metadata.Storage
 			}
 		}
 	}
-	// default
+	logger.Warn("plan %s not found, using defaults", planId)
 	return 3, "4", "4Gi", "250Gi"
 }

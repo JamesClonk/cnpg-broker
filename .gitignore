@@ -54,3 +54,9 @@ go.work.sum
 
 # node_modules for prettier formatting
 /node_modules
+
+# AI stuff
+research.md
+plan.md
+todo.md
+tasks.md

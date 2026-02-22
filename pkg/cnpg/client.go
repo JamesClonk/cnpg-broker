@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cnpg-broker/pkg/catalog"
+	"github.com/cnpg-broker/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -178,13 +179,39 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, planId string) (
 	return instanceId, nil
 }
 
-func (c *Client) GetCluster(ctx context.Context, instanceId string) (string, error) {
-	_, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
+func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInfo, error) {
+	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	// TODO: return actual cluster here
-	return instanceId, nil
+
+	info := &ClusterInfo{
+		InstanceID: instanceId,
+		Namespace:  instanceId,
+		Labels:     cluster.GetLabels(),
+	}
+
+	if status, found, err := unstructured.NestedMap(cluster.Object, "status"); found && err == nil {
+		if phase, ok := status["phase"].(string); ok {
+			info.Phase = phase
+		}
+		if instances, ok := status["instances"].(int64); ok {
+			info.Instances = instances
+		}
+		if ready, ok := status["readyInstances"].(int64); ok {
+			info.Ready = ready
+		}
+	}
+
+	if info.Ready == info.Instances && info.Instances > 0 {
+		info.Status = "ready"
+	} else if info.Ready > 0 {
+		info.Status = "partially_ready"
+	} else {
+		info.Status = "not_ready"
+	}
+
+	return info, nil
 }
 
 func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
@@ -192,6 +219,8 @@ func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
 }
 
 func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[string]string, error) {
+	logger.Debug("collecting credentials for instance %s", instanceId)
+	
 	secretName := fmt.Sprintf("%s-app", instanceId)
 	secret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
@@ -217,17 +246,45 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		"ro_jdbc_uri": fmt.Sprintf("jdbc:postgresql://%s-ro.%s.svc.cluster.local:5432/%s?password=%s&user=%s", instanceId, instanceId, database, password, username),
 	}
 
-	// get TLS certificates
-	// TODO: this needs fixing, we need to collect a mix of *-ca, *-server and *-pooler certs!
-	tlsSecretName := fmt.Sprintf("%s-ca", instanceId)
-	tlsSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, tlsSecretName, metav1.GetOptions{})
+	logger.Debug("retrieved base credentials for instance %s", instanceId)
+
+	caCertSecretName := fmt.Sprintf("%s-ca", instanceId)
+	caCertSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, caCertSecretName, metav1.GetOptions{})
 	if err == nil {
-		credentials["ca_cert"] = string(tlsSecret.Data["ca.crt"])
-		credentials["tls_cert"] = string(tlsSecret.Data["tls.crt"])
-		credentials["tls_key"] = string(tlsSecret.Data["tls.key"])
+		if caCert, ok := caCertSecret.Data["ca.crt"]; ok {
+			credentials["ca_cert"] = string(caCert)
+			logger.Debug("collected CA certificate for instance %s", instanceId)
+		}
 	}
 
-	// add LB and Pooler endpoints
+	serverCertSecretName := fmt.Sprintf("%s-server", instanceId)
+	serverCertSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, serverCertSecretName, metav1.GetOptions{})
+	if err == nil {
+		if tlsCert, ok := serverCertSecret.Data["tls.crt"]; ok {
+			credentials["server_cert"] = string(tlsCert)
+		}
+		if tlsKey, ok := serverCertSecret.Data["tls.key"]; ok {
+			credentials["server_key"] = string(tlsKey)
+		}
+		if len(credentials["server_cert"]) > 0 {
+			logger.Debug("collected server certificate for instance %s", instanceId)
+		}
+	}
+
+	poolerCertSecretName := fmt.Sprintf("%s-pooler", instanceId)
+	poolerCertSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, poolerCertSecretName, metav1.GetOptions{})
+	if err == nil {
+		if tlsCert, ok := poolerCertSecret.Data["tls.crt"]; ok {
+			credentials["pooler_cert"] = string(tlsCert)
+		}
+		if tlsKey, ok := poolerCertSecret.Data["tls.key"]; ok {
+			credentials["pooler_key"] = string(tlsKey)
+		}
+		if len(credentials["pooler_cert"]) > 0 {
+			logger.Debug("collected pooler certificate for instance %s", instanceId)
+		}
+	}
+
 	lbSvcName := fmt.Sprintf("%s-lb-rw", instanceId)
 	lbSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx, lbSvcName, metav1.GetOptions{})
 	if err == nil && len(lbSvc.Status.LoadBalancer.Ingress) > 0 {
@@ -239,7 +296,6 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		credentials["lb_uri"] = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", username, password, lbHost, database)
 		credentials["lb_jdbc_uri"] = fmt.Sprintf("jdbc:postgresql://%s:5432/%s?password=%s&user=%s", lbHost, database, username, password)
 
-		// add Pooler LB if it exists
 		poolerSvcName := fmt.Sprintf("%s-lb-pooler", instanceId)
 		poolerSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx, poolerSvcName, metav1.GetOptions{})
 		if err == nil && len(poolerSvc.Status.LoadBalancer.Ingress) > 0 {
