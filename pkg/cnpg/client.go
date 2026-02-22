@@ -191,6 +191,24 @@ func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInf
 		Labels:     cluster.GetLabels(),
 	}
 
+	if spec, found, err := unstructured.NestedMap(cluster.Object, "spec"); found && err == nil {
+		if resources, found, err := unstructured.NestedMap(spec, "resources"); found && err == nil {
+			if requests, found, err := unstructured.NestedMap(resources, "requests"); found && err == nil {
+				if cpu, ok := requests["cpu"].(string); ok {
+					info.CPU = cpu
+				}
+				if memory, ok := requests["memory"].(string); ok {
+					info.Memory = memory
+				}
+			}
+		}
+		if storage, found, err := unstructured.NestedMap(spec, "storage"); found && err == nil {
+			if size, ok := storage["size"].(string); ok {
+				info.Storage = size
+			}
+		}
+	}
+
 	if status, found, err := unstructured.NestedMap(cluster.Object, "status"); found && err == nil {
 		if phase, ok := status["phase"].(string); ok {
 			info.Phase = phase

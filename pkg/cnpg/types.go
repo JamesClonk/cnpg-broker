@@ -7,5 +7,8 @@ type ClusterInfo struct {
 	Instances  int64             `json:"instances"`
 	Ready      int64             `json:"ready_instances"`
 	Phase      string            `json:"phase"`
+	CPU        string            `json:"cpu"`
+	Memory     string            `json:"memory"`
+	Storage    string            `json:"storage"`
 	Labels     map[string]string `json:"labels,omitempty"`
 }

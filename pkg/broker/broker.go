@@ -59,9 +59,8 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 	if err == nil {
 		logger.Info("instance %s already exists, checking compatibility", instanceId)
 
-		// TODO: also compare CPU, Memory and Storage to "existing", must add those fields to GetCluster!
-		instances, _, _, _ := catalog.PlanSpec(req.PlanID)
-		if existing.Instances == instances {
+		instances, cpu, memory, storage := catalog.PlanSpec(req.PlanID)
+		if existing.Instances == instances && existing.CPU == cpu && existing.Memory == memory && existing.Storage == storage {
 			logger.Info("instance %s already provisioned with matching t-shirt size", instanceId)
 			return c.JSON(http.StatusOK, map[string]any{
 				"instance_id": instanceId,
@@ -69,7 +68,7 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 		} else {
 			logger.Warn("instance %s exists but with different t-shirt size", instanceId)
 			return c.JSON(http.StatusConflict, map[string]string{
-				"error": "instance exists with different configuration",
+				"error": "instance exists with different t-shirt size",
 			})
 		}
 	}
