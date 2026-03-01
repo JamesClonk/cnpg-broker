@@ -139,3 +139,45 @@ fetch-binding:
 delete-binding:
 	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc/service_bindings/db59931a-70a6-43c1-8885-b0c6b1c194d4  \
 		-X DELETE
+
+.PHONY: provision-async
+## provision-async: creates an example service instance asynchronously
+provision-async:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc?accepts_incomplete=true \
+		-X PUT -H "Content-Type: application/json" \
+		-d '{ "service_id":"a651d10f-25ab-4a75-99a6-520c0abbe2ae", "plan_id":"9098f862-fb7e-42b5-9e8c-94c49e231cc3" }' \
+		| jq .
+
+.PHONY: check-operation
+## check-operation: checks last operation status for example instance
+check-operation:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc/last_operation \
+		-X GET | jq .
+
+.PHONY: update-instance-async
+## update-instance-async: updates example service instance asynchronously
+update-instance-async:
+	curl -v http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc?accepts_incomplete=true \
+		-X PATCH -H "Content-Type: application/json" \
+		-d '{ "service_id":"a651d10f-25ab-4a75-99a6-520c0abbe2ae", "plan_id":"31aaeae1-4716-4631-b43e-93144e689427" }' \
+		| jq .
+
+.PHONY: deprovision-async
+## deprovision-async: deletes example service instance asynchronously
+deprovision-async:
+	curl -v "http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc?accepts_incomplete=true&service_id=a651d10f-25ab-4a75-99a6-520c0abbe2ae&plan_id=9098f862-fb7e-42b5-9e8c-94c49e231cc3" \
+		-X DELETE | jq .
+
+.PHONY: test-async-flow
+## test-async-flow: runs complete async provision/check/deprovision flow
+test-async-flow:
+	@echo "1. Starting async provision..."
+	@curl -s http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc?accepts_incomplete=true \
+		-X PUT -H "Content-Type: application/json" \
+		-d '{"service_id":"a651d10f-25ab-4a75-99a6-520c0abbe2ae","plan_id":"9098f862-fb7e-42b5-9e8c-94c49e231cc3"}' | jq .
+	@echo "\n2. Checking operation status (will poll 5 times)..."
+	@for i in 1 2 3 4 5; do \
+		echo "Poll $$i:"; \
+		curl -s http://disco:dingo@localhost:9999/v2/service_instances/fe5556b9-8478-409b-ab2b-3c95ba06c5fc/last_operation | jq .; \
+		sleep 10; \
+	done

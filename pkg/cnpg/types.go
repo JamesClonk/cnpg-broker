@@ -14,3 +14,24 @@ type ClusterInfo struct {
 	Storage    string            `json:"storage"`
 	Labels     map[string]string `json:"labels,omitempty"`
 }
+
+type ClusterStatus struct {
+	Exists         bool   `json:"exists"`
+	Phase          string `json:"phase"`
+	Ready          int64  `json:"ready_instances"`
+	Total          int64  `json:"total_instances"`
+	IsReady        bool   `json:"is_ready"`
+	IsProvisioning bool   `json:"is_provisioning"`
+	IsFailed       bool   `json:"is_failed"`
+	FailureReason  string `json:"failure_reason,omitempty"`
+	SpecInstances  int64  `json:"spec_instances"`
+	SpecCPU        string `json:"spec_cpu"`
+	SpecMemory     string `json:"spec_memory"`
+	SpecStorage    string `json:"spec_storage"`
+	SpecPlanID     string `json:"spec_plan_id"`
+}
+
+type NamespaceStatus struct {
+	Exists        bool `json:"exists"`
+	IsTerminating bool `json:"is_terminating"`
+}

@@ -67,10 +67,11 @@ Environment variables:
 ### OSB API (v2)
 
 - `GET /v2/catalog` - List available services and plans
-- `PUT /v2/service_instances/{instance_id}` - Provision a Postgres instance
-- `PATCH /v2/service_instances/{instance_id}` - Update instance plan (scale up only)
+- `PUT /v2/service_instances/{instance_id}?accepts_incomplete=true` - Provision a Postgres instance (async)
+- `PATCH /v2/service_instances/{instance_id}?accepts_incomplete=true` - Update instance plan (async, scale up only)
 - `GET /v2/service_instances/{instance_id}` - Get instance status
-- `DELETE /v2/service_instances/{instance_id}` - Deprovision instance
+- `GET /v2/service_instances/{instance_id}/last_operation` - Check async operation status
+- `DELETE /v2/service_instances/{instance_id}?accepts_incomplete=true` - Deprovision instance (async)
 - `PUT /v2/service_instances/{instance_id}/service_bindings/{binding_id}` - Create binding
 - `GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}` - Get binding
 - `DELETE /v2/service_instances/{instance_id}/service_bindings/{binding_id}` - Delete binding
@@ -79,6 +80,51 @@ Environment variables:
 
 - `GET /health` or `/healthz` - Health check endpoint
 - `GET /metrics` - Prometheus metrics
+
+## Asynchronous Operations
+
+The broker requires asynchronous operation support for all provisioning, updating, and deprovisioning operations.
+
+### Usage
+
+All provision, update, and deprovision requests MUST include `?accepts_incomplete=true`:
+
+```bash
+# Async provision
+curl -X PUT "http://broker/v2/service_instances/my-instance?accepts_incomplete=true" \
+  -H "Content-Type: application/json" \
+  -d '{"service_id":"a651d10f-25ab-4a75-99a6-520c0abbe2ae","plan_id":"9098f862-fb7e-42b5-9e8c-94c49e231cc3"}'
+
+# Response: 202 Accepted
+{}
+
+# Check status
+curl "http://broker/v2/service_instances/my-instance/last_operation"
+
+# Response: 200 OK
+{
+  "state": "in progress",
+  "description": "Provisioning in progress - 2/3 instances ready"
+}
+```
+
+### Polling
+
+Platforms should poll the `last_operation` endpoint every 10 seconds (as indicated by `Retry-After` header) until:
+- `state` is `succeeded` (operation complete)
+- `state` is `failed` (operation failed)
+- HTTP status is `410 Gone` (deprovision succeeded)
+
+### Error Handling
+
+If `accepts_incomplete=true` is not provided, the broker returns:
+
+```json
+{
+  "error": "AsyncRequired",
+  "description": "This service plan requires client support for asynchronous service operations"
+}
+```
 
 ## Service Plans
 

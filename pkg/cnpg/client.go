@@ -3,6 +3,7 @@ package cnpg
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cnpg-broker/pkg/catalog"
 	"github.com/cnpg-broker/pkg/logger"
@@ -406,4 +407,104 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 	}
 
 	return credentials, nil
+}
+
+func (c *Client) GetClusterStatus(ctx context.Context, instanceID string) (*ClusterStatus, error) {
+	status := &ClusterStatus{
+		Exists: false,
+	}
+
+	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceID).Get(ctx, instanceID, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return status, nil
+		}
+		return nil, err
+	}
+	status.Exists = true
+
+	// extract status
+	if statusMap, found, _ := unstructured.NestedMap(cluster.Object, "status"); found {
+		if phase, ok := statusMap["phase"].(string); ok {
+			status.Phase = phase
+		}
+		if ready, ok := statusMap["readyInstances"].(int64); ok {
+			status.Ready = ready
+		}
+		if total, ok := statusMap["instances"].(int64); ok {
+			status.Total = total
+		}
+	}
+
+	// extract specs
+	if specMap, found, _ := unstructured.NestedMap(cluster.Object, "spec"); found {
+		if instances, ok := specMap["instances"].(int64); ok {
+			status.SpecInstances = instances
+		}
+		if resources, found, _ := unstructured.NestedMap(specMap, "resources", "requests"); found {
+			if cpu, ok := resources["cpu"].(string); ok {
+				status.SpecCPU = cpu
+			}
+			if memory, ok := resources["memory"].(string); ok {
+				status.SpecMemory = memory
+			}
+		}
+		if storage, found, _ := unstructured.NestedMap(specMap, "storage"); found {
+			if size, ok := storage["size"].(string); ok {
+				status.SpecStorage = size
+			}
+		}
+	}
+
+	annotations := cluster.GetAnnotations()
+	if planID, ok := annotations["cnpg-broker.io/plan-id"]; ok {
+		status.SpecPlanID = planID
+	}
+
+	status.IsFailed = strings.Contains(strings.ToLower(status.Phase), "fail") ||
+		strings.Contains(strings.ToLower(status.Phase), "error")
+	status.IsReady = status.Ready == status.Total && status.Total > 0 && !status.IsFailed
+	status.IsProvisioning = status.Exists && !status.IsReady && !status.IsFailed
+
+	if status.IsFailed {
+		status.FailureReason = status.Phase
+	}
+
+	return status, nil
+}
+
+func (c *Client) GetNamespaceStatus(ctx context.Context, instanceID string) (*NamespaceStatus, error) {
+	status := &NamespaceStatus{
+		Exists: false,
+	}
+
+	ns, err := c.clientset.CoreV1().Namespaces().Get(ctx, instanceID, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return status, nil
+		}
+		return nil, err
+	}
+
+	status.Exists = true
+	status.IsTerminating = ns.Status.Phase == corev1.NamespaceTerminating
+
+	return status, nil
+}
+
+func (c *Client) CheckServicesReady(ctx context.Context, instanceID string) (bool, error) {
+	lbSvc, err := c.clientset.CoreV1().Services(instanceID).Get(ctx,
+		fmt.Sprintf("%s-lb-rw", instanceID), metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return false, nil
+		}
+		return false, err
+	}
+
+	if len(lbSvc.Status.LoadBalancer.Ingress) == 0 {
+		return false, nil
+	}
+
+	return true, nil
 }
