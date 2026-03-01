@@ -363,12 +363,10 @@ createApp({
             try {
                 console.log('Loading catalog...');
                 const response = await fetch('/v2/catalog', { credentials: 'include' });
-                console.log('Catalog response status:', response.status);
                 if (!response.ok) throw new Error('Failed to load catalog');
                 const data = await response.json();
-                console.log('Catalog data:', data);
                 this.catalog = data;
-                console.log('Catalog assigned:', this.catalog);
+                console.log('Catalog:', this.catalog);
             } catch (err) {
                 this.error = 'Failed to load catalog: ' + err.message;
                 console.error('Catalog error:', err);
@@ -452,10 +450,6 @@ createApp({
         
         updateAvailablePlans() {
             const service = this.catalog.services?.find(s => s.id === this.newCluster.serviceId);
-            console.log('NewCluster:', this.newCluster);
-            console.log('NewCluster:', this.newCluster.instanceId);
-            console.log('NewCluster:', this.newCluster.serviceId);
-            console.log('NewCluster:', this.newCluster.planId);
             this.availablePlans = (service && service.plans) ? service.plans : [];
             this.newCluster.planId = '';
         },
