@@ -54,10 +54,43 @@ func NewClient() *Client {
 	}
 }
 
+func (c *Client) ListClusters(ctx context.Context) ([]ClusterInfo, error) {
+	logger.Debug("listing all clusters")
+
+	namespaces, err := c.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
+		LabelSelector: "cnpg-broker.io/instance-id",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+	}
+
+	clusters := make([]ClusterInfo, 0, len(namespaces.Items))
+	for _, ns := range namespaces.Items {
+		instanceId := ns.Name
+		clusterInfo, err := c.GetCluster(ctx, instanceId)
+		if err != nil {
+			logger.Warn("failed to get cluster info for %s: %v", instanceId, err)
+			continue
+		}
+		if clusterInfo.Exists {
+			clusters = append(clusters, *clusterInfo)
+		}
+	}
+
+	logger.Debug("found %d clusters", len(clusters))
+	return clusters, nil
+}
+
 func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planId string) (string, error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: instanceId,
+			Labels: map[string]string{
+				"cnpg-broker.io/instance-id": instanceId,
+			},
+			Annotations: map[string]string{
+				"cnpg-broker.io/instance-id": instanceId,
+			},
 		},
 	}
 	_, err := c.clientset.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})

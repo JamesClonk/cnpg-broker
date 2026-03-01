@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"crypto/subtle"
 	"errors"
 	"net/http"
@@ -100,9 +101,15 @@ func (h *Handler) IndexHandler(c echo.Context) error {
 }
 
 func (h *Handler) JSONDataHandler(c echo.Context) error {
-	// get data from k8s
-	clusters := make([]cnpg.ClusterInfo, 0) // TODO: read all clusters / service instances from cnpg client.go
+	client := cnpg.NewClient()
 
-	// return just the list of clusters as JSON
+	clusters, err := client.ListClusters(context.Background())
+	if err != nil {
+		logger.Error("failed to list clusters: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
 	return c.JSON(http.StatusOK, clusters)
 }
