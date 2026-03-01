@@ -1,7 +1,706 @@
-{{ template "_header.html" . }}
+{{{ template "_header.html" . }}}
 
-<section class="topic" id="service-instances">
+<div id="app" class="container" style="margin-top: 2rem;">
+    
+    <section class="hero is-primary">
+        <div class="hero-body">
+            <p class="title">CNPG Service Broker</p>
+            <p class="subtitle">Manage PostgreSQL Clusters</p>
+        </div>
+    </section>
 
-</section>
+    <section class="section">
+        <div class="level">
+            <div class="level-left">
+                <div class="level-item">
+                    <button class="button is-primary" @click="openCreateModal">
+                        <span class="icon"><i class="fas fa-plus"></i></span>
+                        <span>Create Cluster</span>
+                    </button>
+                </div>
+                <div class="level-item">
+                    <button class="button" @click="loadClusters" :class="{'is-loading': loading}">
+                        <span class="icon"><i class="fas fa-arrows-rotate"></i></span>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <label class="checkbox">
+                        <input type="checkbox" v-model="autoRefresh" @change="toggleAutoRefresh">
+                        Auto-refresh ({{ refreshInterval/1000 }}s)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </section>
 
-{{ template "_footer.html" . }}
+    <div v-if="error" class="notification is-danger" style="margin: 1rem 0;">
+        <button class="delete" @click="error = null"></button>
+        {{ error }}
+    </div>
+
+    <section class="section">
+        <div v-if="loading && clusters.length === 0" class="has-text-centered">
+            <span class="icon is-large"><i class="fas fa-spinner fa-pulse"></i></span>
+            <p>Loading clusters...</p>
+        </div>
+
+        <div v-else-if="!loading && clusters.length === 0" class="notification is-info">
+            No clusters found. Create your first PostgreSQL cluster!
+        </div>
+
+        <div class="columns is-multiline">
+            <div v-for="cluster in clusters" :key="cluster.instance_id" class="column is-one-third">
+                <div class="card">
+                    <header class="card-header" :class="getStatusClass(cluster)">
+                        <p class="card-header-title">{{ cluster.instance_id }}</p>
+                        <span class="card-header-icon">
+                            <span class="icon" v-html="getStatusIcon(cluster)"></span>
+                        </span>
+                    </header>
+                    <div class="card-content">
+                        <div class="content">
+                            <p><strong>Service:</strong> {{ getServiceName(cluster.service_id) }}</p>
+                            <p><strong>Plan:</strong> {{ getPlanName(cluster.service_id, cluster.plan_id) }}</p>
+                            <p><strong>Status:</strong> {{ cluster.phase }}</p>
+                            <p><strong>Instances:</strong> {{ cluster.ready_instances }}/{{ cluster.total_instances }}</p>
+                            <p><strong>Resources:</strong> {{ cluster.cpu }} CPU, {{ cluster.memory }} RAM, {{ cluster.storage }}</p>
+                            <p v-if="cluster.is_failed" class="has-text-danger"><strong>Error:</strong> {{ cluster.failure_reason }}</p>
+                        </div>
+                    </div>
+                    <footer class="card-footer">
+                        <a class="card-footer-item" @click="showUpdateModalFunc(cluster)">
+                            <span class="icon"><i class="fas fa-edit"></i></span>
+                            <span>Update</span>
+                        </a>
+                        <a class="card-footer-item" @click="showBindingsModalFunc(cluster)">
+                            <span class="icon"><i class="fas fa-link"></i></span>
+                            <span>Bindings</span>
+                        </a>
+                        <a class="card-footer-item has-text-danger" @click="confirmDelete(cluster)">
+                            <span class="icon"><i class="fas fa-trash"></i></span>
+                            <span>Delete</span>
+                        </a>
+                    </footer>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Create Modal -->
+    <div class="modal" :class="{'is-active': showCreateModal}">
+        <div class="modal-background" @click="showCreateModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Create New Cluster</p>
+                <button class="delete" @click="showCreateModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div v-if="!catalog.services || catalog.services.length === 0" class="notification is-warning">
+                    <p><strong>Loading catalog...</strong> If services don't appear, check browser console for errors.</p>
+                </div>
+
+                <div class="field">
+                    <label class="label">Instance ID</label>
+                    <div class="control">
+                        <input class="input" type="text" v-model="newCluster.instanceId" placeholder="Auto-generated UUID" readonly>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label">Service Type</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select v-model="newCluster.serviceId" @change="updateAvailablePlans">
+                                <option v-for="service in catalog.services" :key="service.id" :value="service.id">{{ service.metadata?.displayName || service.name }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p v-if="catalog.services" class="help">Services loaded: {{ catalog.services?.length || 0 }}</p>
+                </div>
+
+                <div class="field">
+                    <label class="label">Plan</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select v-model="newCluster.planId" :disabled="!newCluster.serviceId">
+                                <option v-for="plan in availablePlans" :key="plan.id" :value="plan.id">{{ plan.name }}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="getSelectedPlan()" class="notification is-info">
+                    <p><strong>{{ getSelectedPlan().name }}</strong></p>
+                    <p>{{ getSelectedPlan().description }}</p>
+                    <p><strong>Resources:</strong> {{ getSelectedPlan().metadata.instances }} instances, {{ getSelectedPlan().metadata.cpu }} CPU, {{ getSelectedPlan().metadata.memory }} RAM, {{ getSelectedPlan().metadata.storage }}</p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="createCluster" :disabled="!newCluster.serviceId || !newCluster.planId || creating" :class="{'is-loading': creating}">Create</button>
+                <button class="button" @click="showCreateModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Update Modal -->
+    <div class="modal" :class="{'is-active': showUpdateModal}">
+        <div class="modal-background" @click="showUpdateModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Update Cluster Plan</p>
+                <button class="delete" @click="showUpdateModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div v-if="selectedCluster" class="notification is-info">
+                    <p><strong>Cluster:</strong> {{ selectedCluster.instance_id }}</p>
+                    <p><strong>Current Plan:</strong> {{ getPlanName(selectedCluster.service_id, selectedCluster.plan_id) }}</p>
+                </div>
+
+                <div class="field">
+                    <label class="label">New Plan</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select v-model="updatePlanId">
+                                <option value="">Select new plan...</option>
+                                <option v-for="plan in getUpgradablePlans(selectedCluster)" :key="plan.id" :value="plan.id">
+                                    {{ plan.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="getUpdatePlanDetails()" class="notification is-warning">
+                    <p><strong>{{ getUpdatePlanDetails().name }}</strong></p>
+                    <p>{{ getUpdatePlanDetails().description }}</p>
+                    <p><strong>Resources:</strong> {{ getUpdatePlanDetails().metadata.instances }} instances, {{ getUpdatePlanDetails().metadata.cpu }} CPU, {{ getUpdatePlanDetails().metadata.memory }} RAM, {{ getUpdatePlanDetails().metadata.storage }}</p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" @click="updateClusterPlan" :disabled="!updatePlanId || updating" :class="{'is-loading': updating}">Update</button>
+                <button class="button" @click="showUpdateModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div class="modal" :class="{'is-active': showDeleteModal}">
+        <div class="modal-background" @click="showDeleteModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Delete Cluster</p>
+                <button class="delete" @click="showDeleteModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div v-if="selectedCluster" class="notification is-danger">
+                    <p><strong>Warning:</strong> This will permanently delete the cluster and all its data.</p>
+                    <p><strong>Cluster:</strong> {{ selectedCluster.instance_id }}</p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" @click="deleteCluster" :disabled="deleting" :class="{'is-loading': deleting}">Delete</button>
+                <button class="button" @click="showDeleteModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Bindings Modal -->
+    <div class="modal" :class="{'is-active': showBindingsModal}">
+        <div class="modal-background" @click="showBindingsModal = false"></div>
+        <div class="modal-card" style="width: 90%; max-width: 1200px;">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Service Bindings</p>
+                <button class="delete" @click="showBindingsModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div v-if="selectedCluster" class="notification is-info">
+                    <p><strong>Cluster:</strong> {{ selectedCluster.instance_id }}</p>
+                </div>
+
+                <div class="field has-addons">
+                    <div class="control is-expanded">
+                        <input class="input" type="text" v-model="newBindingId" placeholder="Binding ID" readonly>
+                    </div>
+                    <div class="control">
+                        <button class="button is-primary" @click="createBinding" :disabled="bindingLoading" :class="{'is-loading': bindingLoading}">Create Binding</button>
+                    </div>
+                </div>
+
+                <div v-for="binding in bindings" :key="binding.id" class="box">
+                    <div class="level">
+                        <div class="level-left">
+                            <div class="level-item">
+                                <strong>{{ binding.id }}</strong>
+                            </div>
+                        </div>
+                        <div class="level-right">
+                            <div class="level-item">
+                                <button class="button is-small" @click="toggleBindingDetails(binding.id)">
+                                    <span class="icon"><i :class="binding.showDetails ? 'fas fa-eye-slash' : 'fas fa-eye'"></i></span>
+                                </button>
+                            </div>
+                            <div class="level-item">
+                                <button class="button is-small" @click="refreshBinding(binding.id)">
+                                    <span class="icon"><i class="fas fa-arrows-rotate"></i></span>
+                                </button>
+                            </div>
+                            <div class="level-item">
+                                <button class="button is-small is-danger" @click="confirmDeleteBinding(binding.id)">
+                                    <span class="icon"><i class="fas fa-trash"></i></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="binding.showDetails && binding.credentials" class="content">
+                        <table class="table is-fullwidth is-striped">
+                            <tbody>
+                                <tr v-for="(value, key) in binding.credentials" :key="key">
+                                    <td><strong>{{ key }}</strong></td>
+                                    <td>
+                                        <div class="field has-addons">
+                                            <div class="control is-expanded">
+                                                <input class="input is-small" :type="key.includes('password') && !binding.showPassword ? 'password' : 'text'" :value="value" readonly>
+                                            </div>
+                                            <div class="control">
+                                                <button class="button is-small" @click="copyToClipboard(value)">
+                                                    <span class="icon"><i class="fas fa-copy"></i></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button" @click="showBindingsModal = false">Close</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Delete Binding Modal -->
+    <div class="modal" :class="{'is-active': showDeleteBindingModal}">
+        <div class="modal-background" @click="showDeleteBindingModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Delete Binding</p>
+                <button class="delete" @click="showDeleteBindingModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="notification is-warning">
+                    <p><strong>Warning:</strong> This will delete the binding and revoke access.</p>
+                    <p><strong>Binding ID:</strong> {{ selectedBindingId }}</p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" @click="deleteBinding" :disabled="bindingLoading" :class="{'is-loading': bindingLoading}">Delete</button>
+                <button class="button" @click="showDeleteBindingModal = false">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+</div>
+
+<script src="js/vue.js"></script>
+<script>
+const { createApp } = Vue;
+
+createApp({
+    data() {
+        return {
+            clusters: [],
+            catalog: { services: [] },
+            loading: false,
+            error: null,
+            autoRefresh: true,
+            refreshInterval: 60000,
+            refreshTimer: null,
+
+            showCreateModal: false,
+            showUpdateModal: false,
+            showDeleteModal: false,
+            showBindingsModal: false,
+            showDeleteBindingModal: false,
+
+            selectedCluster: null,
+            selectedBindingId: null,
+
+            newCluster: {
+                instanceId: '',
+                serviceId: '',
+                planId: ''
+            },
+            availablePlans: [],
+            creating: false,
+
+            updatePlanId: '',
+            updating: false,
+
+            deleting: false,
+
+            bindings: [],
+            newBindingId: '',
+            bindingLoading: false
+        };
+    },
+
+    async mounted() {
+        await this.loadCatalog();
+        await this.loadClusters();
+        if (this.autoRefresh) {
+            this.startAutoRefresh();
+        }
+    },
+
+    methods: {
+        async loadCatalog() {
+            try {
+                console.log('Loading catalog...');
+                const response = await fetch('/v2/catalog', { credentials: 'include' });
+                if (!response.ok) throw new Error('Failed to load catalog');
+                const data = await response.json();
+                this.catalog = data;
+                console.log('Catalog:', this.catalog);
+            } catch (err) {
+                this.error = 'Failed to load catalog: ' + err.message;
+                console.error('Catalog error:', err);
+            }
+        },
+        
+        async loadClusters() {
+            this.loading = true;
+            this.error = null;
+            try {
+                const response = await fetch('/json', { credentials: 'include' });
+                if (!response.ok) throw new Error('Failed to load clusters');
+                this.clusters = await response.json();
+                this.pollProvisioningClusters();
+            } catch (err) {
+                this.error = 'Failed to load clusters: ' + err.message;
+                console.error(err);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async pollProvisioningClusters() {
+            const provisioning = this.clusters.filter(c => c.is_provisioning);
+            for (const cluster of provisioning) {
+                this.pollClusterStatus(cluster.instance_id);
+            }
+        },
+        
+        async pollClusterStatus(instanceId) {
+            try {
+                const response = await fetch(`/v2/service_instances/${instanceId}/last_operation`, { credentials: 'include' });
+                if (!response.ok) return;
+                
+                const status = await response.json();
+                const index = this.clusters.findIndex(c => c.instance_id === instanceId);
+                if (index !== -1) {
+                    const clusterResponse = await fetch(`/v2/service_instances/${instanceId}`, { credentials: 'include' });
+                    if (clusterResponse.ok) {
+                        this.clusters[index] = await clusterResponse.json();
+                    }
+                }
+                
+                if (status.state === 'in progress') {
+                    setTimeout(() => this.pollClusterStatus(instanceId), 5000);
+                }
+            } catch (err) {
+                console.error('Failed to poll cluster status:', err);
+            }
+        },
+        
+        toggleAutoRefresh() {
+            if (this.autoRefresh) {
+                this.startAutoRefresh();
+            } else {
+                this.stopAutoRefresh();
+            }
+        },
+        
+        startAutoRefresh() {
+            this.stopAutoRefresh();
+            this.refreshTimer = setInterval(() => this.loadClusters(), this.refreshInterval);
+        },
+        
+        stopAutoRefresh() {
+            if (this.refreshTimer) {
+                clearInterval(this.refreshTimer);
+                this.refreshTimer = null;
+            }
+        },
+        
+        openCreateModal() {
+            this.newCluster = {
+                instanceId: this.generateUUID(),
+                serviceId: '',
+                planId: ''
+            };
+            this.availablePlans = [];
+            this.showCreateModal = true;
+        },
+        
+        updateAvailablePlans() {
+            const service = this.catalog.services?.find(s => s.id === this.newCluster.serviceId);
+            this.availablePlans = (service && service.plans) ? service.plans : [];
+            this.newCluster.planId = '';
+        },
+        
+        getSelectedPlan() {
+            return this.availablePlans.find(p => p.id === this.newCluster.planId);
+        },
+        
+        async createCluster() {
+            this.creating = true;
+            this.error = null;
+            try {
+                const response = await fetch(`/v2/service_instances/${this.newCluster.instanceId}?accepts_incomplete=true`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        service_id: this.newCluster.serviceId,
+                        plan_id: this.newCluster.planId
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create cluster');
+                }
+                
+                this.showCreateModal = false;
+                await this.loadClusters();
+                this.pollClusterStatus(this.newCluster.instanceId);
+            } catch (err) {
+                this.error = 'Failed to create cluster: ' + err.message;
+                console.error(err);
+            } finally {
+                this.creating = false;
+            }
+        },
+        
+        showUpdateModalFunc(cluster) {
+            this.selectedCluster = cluster;
+            this.updatePlanId = '';
+            this.showUpdateModal = true;
+        },
+        
+        getUpgradablePlans(cluster) {
+            if (!cluster) return [];
+            const service = this.catalog.services?.find(s => s.id === cluster.service_id);
+            if (!service || !service.plans) return [];
+            return service.plans.filter(p => p.id !== cluster.plan_id);
+        },
+        
+        getUpdatePlanDetails() {
+            if (!this.selectedCluster) return null;
+            const service = this.catalog.services?.find(s => s.id === this.selectedCluster.service_id);
+            if (!service || !service.plans) return null;
+            return service.plans.find(p => p.id === this.updatePlanId);
+        },
+        
+        async updateClusterPlan() {
+            this.updating = true;
+            this.error = null;
+            try {
+                const response = await fetch(`/v2/service_instances/${this.selectedCluster.instance_id}?accepts_incomplete=true`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        service_id: this.selectedCluster.service_id,
+                        plan_id: this.updatePlanId
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to update cluster');
+                }
+                
+                this.showUpdateModal = false;
+                await this.loadClusters();
+                this.pollClusterStatus(this.selectedCluster.instance_id);
+            } catch (err) {
+                this.error = 'Failed to update cluster: ' + err.message;
+                console.error(err);
+            } finally {
+                this.updating = false;
+            }
+        },
+        
+        confirmDelete(cluster) {
+            this.selectedCluster = cluster;
+            this.showDeleteModal = true;
+        },
+        
+        async deleteCluster() {
+            this.deleting = true;
+            this.error = null;
+            try {
+                const response = await fetch(`/v2/service_instances/${this.selectedCluster.instance_id}?accepts_incomplete=true`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok && response.status !== 410) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete cluster');
+                }
+                
+                this.showDeleteModal = false;
+                await this.loadClusters();
+            } catch (err) {
+                this.error = 'Failed to delete cluster: ' + err.message;
+                console.error(err);
+            } finally {
+                this.deleting = false;
+            }
+        },
+        
+        showBindingsModalFunc(cluster) {
+            this.selectedCluster = cluster;
+            this.bindings = [];
+            this.newBindingId = this.generateUUID();
+            this.showBindingsModal = true;
+        },
+        
+        async createBinding() {
+            this.bindingLoading = true;
+            this.error = null;
+            try {
+                const response = await fetch(`/v2/service_instances/${this.selectedCluster.instance_id}/service_bindings/${this.newBindingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({})
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create binding');
+                }
+                
+                const data = await response.json();
+                this.bindings.push({
+                    id: this.newBindingId,
+                    credentials: data.credentials,
+                    showDetails: true,
+                    showPassword: false
+                });
+                
+                this.newBindingId = this.generateUUID();
+            } catch (err) {
+                this.error = 'Failed to create binding: ' + err.message;
+                console.error(err);
+            } finally {
+                this.bindingLoading = false;
+            }
+        },
+        
+        async refreshBinding(bindingId) {
+            this.bindingLoading = true;
+            try {
+                const response = await fetch(`/v2/service_instances/${this.selectedCluster.instance_id}/service_bindings/${bindingId}`, { credentials: 'include' });
+                if (!response.ok) throw new Error('Failed to refresh binding');
+                
+                const data = await response.json();
+                const index = this.bindings.findIndex(b => b.id === bindingId);
+                if (index !== -1) {
+                    this.bindings[index].credentials = data.credentials;
+                }
+            } catch (err) {
+                this.error = 'Failed to refresh binding: ' + err.message;
+                console.error(err);
+            } finally {
+                this.bindingLoading = false;
+            }
+        },
+        
+        toggleBindingDetails(bindingId) {
+            const binding = this.bindings.find(b => b.id === bindingId);
+            if (binding) {
+                binding.showDetails = !binding.showDetails;
+            }
+        },
+        
+        confirmDeleteBinding(bindingId) {
+            this.selectedBindingId = bindingId;
+            this.showDeleteBindingModal = true;
+        },
+        
+        async deleteBinding() {
+            this.bindingLoading = true;
+            this.error = null;
+            try {
+                const response = await fetch(`/v2/service_instances/${this.selectedCluster.instance_id}/service_bindings/${this.selectedBindingId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete binding');
+                }
+                
+                this.bindings = this.bindings.filter(b => b.id !== this.selectedBindingId);
+                this.showDeleteBindingModal = false;
+            } catch (err) {
+                this.error = 'Failed to delete binding: ' + err.message;
+                console.error(err);
+            } finally {
+                this.bindingLoading = false;
+            }
+        },
+        
+        generateUUID() {
+            return self.crypto.randomUUID();
+        },
+        
+        getServiceName(serviceId) {
+            const service = this.catalog.services?.find(s => s.id === serviceId);
+            return service ? (service.metadata?.displayName || service.name) : 'Unknown';
+        },
+        
+        getPlanName(serviceId, planId) {
+            const service = this.catalog.services?.find(s => s.id === serviceId);
+            if (!service || !service.plans) return 'Unknown';
+            const plan = service.plans.find(p => p.id === planId);
+            return plan ? plan.name : 'Unknown';
+        },
+        
+        getStatusClass(cluster) {
+            if (cluster.is_ready) return 'has-background-success-light';
+            if (cluster.is_failed) return 'has-background-danger-light';
+            if (cluster.is_provisioning) return 'has-background-warning-light';
+            return 'has-background-light';
+        },
+        
+        getStatusIcon(cluster) {
+            if (cluster.is_ready) return '<i class="fas fa-check-circle has-text-success"></i>';
+            if (cluster.is_failed) return '<i class="fas fa-times-circle has-text-danger"></i>';
+            if (cluster.is_provisioning) return '<i class="fas fa-spinner fa-pulse has-text-warning"></i>';
+            return '<i class="fas fa-question-circle"></i>';
+        },
+        
+        async copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        }
+    }
+}).mount('#app');
+</script>
+
+{{{ template "_footer.html" . }}}

@@ -14,42 +14,42 @@ type Catalog struct {
 }
 
 type Service struct {
-	ID                   string          `yaml:"id"`
-	Name                 string          `yaml:"name"`
-	Description          string          `yaml:"description"`
-	Bindable             bool            `yaml:"bindable"`
-	InstancesRetrievable bool            `yaml:"instances_retrievable"`
-	BindingsRetrievable  bool            `yaml:"bindings_retrievable"`
-	PlanUpdateable       bool            `yaml:"plan_updateable"`
-	Tags                 []string        `yaml:"tags"`
-	Metadata             ServiceMetadata `yaml:"metadata"`
-	Plans                []Plan          `yaml:"plans"`
+	ID                   string          `yaml:"id" json:"id"`
+	Name                 string          `yaml:"name" json:"name"`
+	Description          string          `yaml:"description" json:"description"`
+	Bindable             bool            `yaml:"bindable" json:"bindable"`
+	InstancesRetrievable bool            `yaml:"instances_retrievable" json:"instances_retrievable"`
+	BindingsRetrievable  bool            `yaml:"bindings_retrievable" json:"bindings_retrievable"`
+	PlanUpdateable       bool            `yaml:"plan_updateable" json:"plan_updateable"`
+	Tags                 []string        `yaml:"tags" json:"tags,omitempty"`
+	Metadata             ServiceMetadata `yaml:"metadata" json:"metadata"`
+	Plans                []Plan          `yaml:"plans" json:"plans"`
 }
 
 type ServiceMetadata struct {
-	DisplayName         string `yaml:"displayName"`
-	ImageUrl            string `yaml:"imageUrl"`
-	LongDescription     string `yaml:"longDescription"`
-	ProviderDisplayName string `yaml:"providerDisplayName"`
-	DocumentationUrl    string `yaml:"documentationUrl"`
-	SupportUrl          string `yaml:"supportUrl"`
+	DisplayName         string `yaml:"displayName" json:"displayName"`
+	ImageUrl            string `yaml:"imageUrl" json:"imageUrl,omitempty"`
+	LongDescription     string `yaml:"longDescription" json:"longDescription,omitempty"`
+	ProviderDisplayName string `yaml:"providerDisplayName" json:"providerDisplayName,omitempty"`
+	DocumentationUrl    string `yaml:"documentationUrl" json:"documentationUrl,omitempty"`
+	SupportUrl          string `yaml:"supportUrl" json:"supportUrl,omitempty"`
 }
 
 type Plan struct {
-	ID          string       `yaml:"id"`
-	Name        string       `yaml:"name"`
-	Description string       `yaml:"description"`
-	Free        bool         `yaml:"free"`
-	Metadata    PlanMetadata `yaml:"metadata"`
+	ID          string       `yaml:"id" json:"id"`
+	Name        string       `yaml:"name" json:"name"`
+	Description string       `yaml:"description" json:"description"`
+	Free        bool         `yaml:"free" json:"free"`
+	Metadata    PlanMetadata `yaml:"metadata" json:"metadata"`
 }
 
 type PlanMetadata struct {
-	Instances        int64  `yaml:"instances"`
-	CPU              string `yaml:"cpu"`
-	Memory           string `yaml:"memory"`
-	Storage          string `yaml:"storage"`
-	HighAvailability bool   `yaml:"highAvailability"`
-	SLA              bool   `yaml:"sla"`
+	Instances        int64  `yaml:"instances" json:"instances"`
+	CPU              string `yaml:"cpu" json:"cpu"`
+	Memory           string `yaml:"memory" json:"memory"`
+	Storage          string `yaml:"storage" json:"storage"`
+	HighAvailability bool   `yaml:"highAvailability" json:"highAvailability"`
+	SLA              bool   `yaml:"sla" json:"sla"`
 }
 
 func init() {

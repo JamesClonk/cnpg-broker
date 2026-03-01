@@ -31,7 +31,7 @@ func (h *Handler) RegisterRenderer(e *echo.Echo) {
 		"Time":       humanize.Time,
 	}
 	renderer := &TemplateRenderer{
-		templates: template.Must(template.New("ui").Funcs(sprig.FuncMap()).Funcs(funcMap).ParseGlob("public/*.html")),
+		templates: template.Must(template.New("ui").Delims("{{{","}}}").Funcs(sprig.FuncMap()).Funcs(funcMap).ParseGlob("public/*.html")),
 	}
 	e.Renderer = renderer
 }
