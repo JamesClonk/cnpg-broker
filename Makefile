@@ -52,12 +52,21 @@ install-air:
 	#go install github.com/air-verse/air@latest
 
 #=======================================================================================================================
+.PHONY: setup
+## setup: creates cluster and installs all components
+setup: kind install
+
 .PHONY: kind
-## kind: creates kind cluster and installs/updates cert-manager, cnpg.io, barman-plugin, and longhorn
+## kind: creates kind cluster
 kind:
+	@echo "Setting up kind cluster ..."
 	@kind get clusters | grep -q cnpg || kind create cluster --name cnpg
 	kubectl config use-context kind-cnpg
 	@echo " "
+
+.PHONY: install
+## install: installs/updates cert-manager, cnpg.io, barman-plugin
+install:
 	@echo "Installing basic components ..."
 	@kubectl apply --server-side -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.yaml
 	@kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.28/releases/cnpg-1.28.1.yaml
@@ -71,6 +80,7 @@ kind:
 	@echo " "
 	@echo "Enabling volume expansion on default StorageClass ..."
 	kubectl patch storageclass standard -p '{"allowVolumeExpansion": true}'
+	@echo " "
 
 .PHONY: cleanup
 cleanup: kind-cleanup docker-cleanup
@@ -81,7 +91,7 @@ docker-cleanup:
 .PHONY: kind-cleanup
 ## kind-cleanup: cleans up local kind cluster
 kind-cleanup:
-	kind delete cluster --name cnpg
+	kind delete cluster --name cnpg || true
 
 #=======================================================================================================================
 .PHONY: provision
