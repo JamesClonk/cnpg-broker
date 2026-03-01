@@ -14,9 +14,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Handler struct{}
+type Handler struct{
+	client *cnpg.Client
+}
 
 type Page struct {
+
 	Title    string
 	Clusters []cnpg.ClusterInfo
 	Error    struct {
@@ -27,7 +30,9 @@ type Page struct {
 }
 
 func New() *Handler {
-	return &Handler{}
+	return &Handler{
+		client: cnpg.NewClient(),
+	}
 }
 
 func (h *Handler) RegisterRoutes(e *echo.Echo) {
@@ -101,9 +106,7 @@ func (h *Handler) IndexHandler(c echo.Context) error {
 }
 
 func (h *Handler) JSONDataHandler(c echo.Context) error {
-	client := cnpg.NewClient()
-
-	clusters, err := client.ListClusters(context.Background())
+	clusters, err := h.client.ListClusters(context.Background())
 	if err != nil {
 		logger.Error("failed to list clusters: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
