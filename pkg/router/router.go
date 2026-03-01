@@ -6,6 +6,7 @@ import (
 	"github.com/cnpg-broker/pkg/broker"
 	"github.com/cnpg-broker/pkg/health"
 	"github.com/cnpg-broker/pkg/metrics"
+	"github.com/cnpg-broker/pkg/ui"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -15,7 +16,7 @@ type Router struct {
 	health  *health.Handler
 	metrics *metrics.Handler
 	broker  *broker.Handler
-	//ui      *ui.Handler
+	ui      *ui.Handler
 }
 
 func New() *Router {
@@ -37,7 +38,7 @@ func New() *Router {
 		health:  health.New(),
 		metrics: metrics.New(),
 		broker:  broker.New(),
-		//ui:      ui.New(),
+		ui:      ui.New(),
 	}
 
 	// setup health route
@@ -49,10 +50,10 @@ func New() *Router {
 	// setup broker/api routes
 	r.broker.RegisterRoutes(r.echo)
 
-	// // setup Web-UI routes
-	// r.ui.RegisterRoutes(r.echo)
-	// // setup Web-UI rendering
-	// r.ui.RegisterRenderer(r.echo)
+	// setup Web-UI routes
+	r.ui.RegisterRoutes(r.echo)
+	// setup Web-UI rendering
+	r.ui.RegisterRenderer(r.echo)
 
 	return r
 }

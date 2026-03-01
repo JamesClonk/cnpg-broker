@@ -1,0 +1,11 @@
+{{ template "_header.html" . }}
+
+<section class="section">
+  <section class="container with-title">
+    <h2 class="title">HTTP-{{ .Error.Code }}</h2>
+    <p class="description text">{{ .Error.Time.Format "Mon Jan 2 15:04:05 MST 2006" }}</p>
+    <p class="note text is-error">{{ .Error.Message }}</p>
+  </section>
+</section>
+
+{{ template "_footer.html" . }}
