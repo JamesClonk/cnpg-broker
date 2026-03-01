@@ -1,7 +1,5 @@
 {{ template "_header.html" . }}
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
 <div class="container" style="margin-top: 2rem;" x-data="app()" x-init="init()">
     
     <section class="hero is-primary">
@@ -22,7 +20,7 @@
                 </div>
                 <div class="level-item">
                     <button class="button" @click="loadClusters()" :class="{'is-loading': loading}">
-                        <span class="icon"><i class="fas fa-sync"></i></span>
+                        <span class="icon"><i class="fas fa-arrows-rotate"></i></span>
                         <span>Refresh</span>
                     </button>
                 </div>
@@ -109,6 +107,10 @@
                 <button class="delete" @click="showCreateModal = false"></button>
             </header>
             <section class="modal-card-body">
+                <div class="notification is-warning" x-show="!catalog.services || catalog.services.length === 0">
+                    <p><strong>Loading catalog...</strong> If services don't appear, check browser console for errors.</p>
+                </div>
+
                 <div class="field">
                     <label class="label">Instance ID</label>
                     <div class="control">
@@ -122,13 +124,13 @@
                     <div class="control">
                         <div class="select is-fullwidth">
                             <select x-model="newCluster.serviceId" @change="updateAvailablePlans()">
-                                <option value="">Select service...</option>
-                                <template x-for="service in (catalog.services || [])" :key="service.id">
-                                    <option :value="service.id" x-text="service.metadata.displayName"></option>
+                                <template x-for="service in catalog.services" :key="service.id">
+                                    <option :value="service.id" x-text="service.Metadata?.displayName || service.name"></option>
                                 </template>
                             </select>
                         </div>
                     </div>
+                    <p class="help" x-show="catalog.services" x-text="'Services loaded: ' + (catalog.services?.length || 0)"></p>
                 </div>
 
                 <div class="field" x-show="newCluster.serviceId">
@@ -136,7 +138,6 @@
                     <div class="control">
                         <div class="select is-fullwidth">
                             <select x-model="newCluster.planId">
-                                <option value="">Select plan...</option>
                                 <template x-for="plan in availablePlans" :key="plan.id">
                                     <option :value="plan.id" x-text="plan.name + ' - ' + plan.description"></option>
                                 </template>
@@ -440,7 +441,7 @@
 
 </div>
 
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script defer src="/js/alpinejs-3.15.8.js"></script>
 
 <script>
 function app() {
@@ -450,7 +451,7 @@ function app() {
         loading: false,
         error: null,
         autoRefresh: true,
-        refreshInterval: 10000,
+        refreshInterval: 60000,
         refreshTimer: null,
         
         showCreateModal: false,
@@ -489,15 +490,19 @@ function app() {
         
         async loadCatalog() {
             try {
+                console.log('Loading catalog...');
                 const response = await fetch('/v2/catalog', {
                     credentials: 'include'
                 });
+                console.log('Catalog response status:', response.status);
                 if (!response.ok) throw new Error('Failed to load catalog');
                 const data = await response.json();
+                console.log('Catalog data:', data);
                 this.catalog = data;
+                console.log('Catalog assigned:', this.catalog);
             } catch (err) {
                 this.error = 'Failed to load catalog: ' + err.message;
-                console.error(err);
+                console.error('Catalog error:', err);
             }
         },
         
@@ -590,7 +595,7 @@ function app() {
         
         updateAvailablePlans() {
             const service = this.catalog.services?.find(s => s.id === this.newCluster.serviceId);
-            this.availablePlans = service ? service.plans : [];
+            this.availablePlans = (service && service.plans) ? service.plans : [];
             this.newCluster.planId = '';
         },
         
@@ -640,16 +645,16 @@ function app() {
         
         getUpgradablePlans(cluster) {
             if (!cluster) return [];
-            const service = this.catalog.services.find(s => s.id === cluster.service_id);
-            if (!service) return [];
+            const service = this.catalog.services?.find(s => s.id === cluster.service_id);
+            if (!service || !service.plans) return [];
             
             return service.plans.filter(p => p.id !== cluster.plan_id);
         },
         
         getUpdatePlanDetails() {
             if (!this.selectedCluster) return null;
-            const service = this.catalog.services.find(s => s.id === this.selectedCluster.service_id);
-            if (!service) return null;
+            const service = this.catalog.services?.find(s => s.id === this.selectedCluster.service_id);
+            if (!service || !service.plans) return null;
             return service.plans.find(p => p.id === this.updatePlanId);
         },
         
@@ -833,13 +838,13 @@ function app() {
         },
         
         getServiceName(serviceId) {
-            const service = this.catalog.services.find(s => s.id === serviceId);
-            return service ? service.metadata.displayName : 'Unknown';
+            const service = this.catalog.services?.find(s => s.id === serviceId);
+            return service ? service.Metadata.displayName : 'Unknown';
         },
         
         getPlanName(serviceId, planId) {
-            const service = this.catalog.services.find(s => s.id === serviceId);
-            if (!service) return 'Unknown';
+            const service = this.catalog.services?.find(s => s.id === serviceId);
+            if (!service || !service.plans) return 'Unknown';
             const plan = service.plans.find(p => p.id === planId);
             return plan ? plan.name : 'Unknown';
         },
