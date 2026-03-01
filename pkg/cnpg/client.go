@@ -192,16 +192,21 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 }
 
 func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInfo, error) {
-	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
 	info := &ClusterInfo{
+		Exists:     false,
 		InstanceID: instanceId,
 		Namespace:  instanceId,
-		Labels:     cluster.GetLabels(),
 	}
+
+	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, instanceId, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return info, nil
+		}
+		return nil, err
+	}
+	info.Exists = true
+	info.Labels = cluster.GetLabels()
 
 	// extract annotations
 	annotations := cluster.GetAnnotations()
@@ -212,8 +217,24 @@ func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInf
 		info.PlanID = planId
 	}
 
+	// extract status
+	if statusMap, found, err := unstructured.NestedMap(cluster.Object, "status"); found && err == nil {
+		if instances, ok := statusMap["instances"].(int64); ok {
+			info.TotalInstances = instances
+		}
+		if ready, ok := statusMap["readyInstances"].(int64); ok {
+			info.ReadyInstances = ready
+		}
+		if phase, ok := statusMap["phase"].(string); ok {
+			info.Phase = phase
+		}
+	}
+
 	// extract specs
 	if spec, found, err := unstructured.NestedMap(cluster.Object, "spec"); found && err == nil {
+		if instances, ok := spec["instances"].(int64); ok {
+			info.Instances = instances
+		}
 		if resources, found, err := unstructured.NestedMap(spec, "resources"); found && err == nil {
 			if requests, found, err := unstructured.NestedMap(resources, "requests"); found && err == nil {
 				if cpu, ok := requests["cpu"].(string); ok {
@@ -231,26 +252,14 @@ func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInf
 		}
 	}
 
-	if status, found, err := unstructured.NestedMap(cluster.Object, "status"); found && err == nil {
-		if phase, ok := status["phase"].(string); ok {
-			info.Phase = phase
-		}
-		if instances, ok := status["instances"].(int64); ok {
-			info.Instances = instances
-		}
-		if ready, ok := status["readyInstances"].(int64); ok {
-			info.Ready = ready
-		}
-	}
+	info.IsFailed = strings.Contains(strings.ToLower(info.Phase), "fail") ||
+		strings.Contains(strings.ToLower(info.Phase), "error")
+	info.IsReady = info.ReadyInstances == info.TotalInstances && info.TotalInstances > 0 && info.TotalInstances == info.Instances && !info.IsFailed
+	info.IsProvisioning = info.Exists && !info.IsReady && !info.IsFailed
 
-	if info.Ready == info.Instances && info.Instances > 0 {
-		info.Status = "ready"
-	} else if info.Ready > 0 {
-		info.Status = "partially_ready"
-	} else {
-		info.Status = "not_ready"
+	if info.IsFailed {
+		info.FailureReason = info.Phase
 	}
-
 	return info, nil
 }
 
@@ -407,70 +416,6 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 	}
 
 	return credentials, nil
-}
-
-func (c *Client) GetClusterStatus(ctx context.Context, instanceID string) (*ClusterStatus, error) {
-	status := &ClusterStatus{
-		Exists: false,
-	}
-
-	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceID).Get(ctx, instanceID, metav1.GetOptions{})
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return status, nil
-		}
-		return nil, err
-	}
-	status.Exists = true
-
-	// extract status
-	if statusMap, found, _ := unstructured.NestedMap(cluster.Object, "status"); found {
-		if phase, ok := statusMap["phase"].(string); ok {
-			status.Phase = phase
-		}
-		if ready, ok := statusMap["readyInstances"].(int64); ok {
-			status.Ready = ready
-		}
-		if total, ok := statusMap["instances"].(int64); ok {
-			status.Total = total
-		}
-	}
-
-	// extract specs
-	if specMap, found, _ := unstructured.NestedMap(cluster.Object, "spec"); found {
-		if instances, ok := specMap["instances"].(int64); ok {
-			status.SpecInstances = instances
-		}
-		if resources, found, _ := unstructured.NestedMap(specMap, "resources", "requests"); found {
-			if cpu, ok := resources["cpu"].(string); ok {
-				status.SpecCPU = cpu
-			}
-			if memory, ok := resources["memory"].(string); ok {
-				status.SpecMemory = memory
-			}
-		}
-		if storage, found, _ := unstructured.NestedMap(specMap, "storage"); found {
-			if size, ok := storage["size"].(string); ok {
-				status.SpecStorage = size
-			}
-		}
-	}
-
-	annotations := cluster.GetAnnotations()
-	if planID, ok := annotations["cnpg-broker.io/plan-id"]; ok {
-		status.SpecPlanID = planID
-	}
-
-	status.IsFailed = strings.Contains(strings.ToLower(status.Phase), "fail") ||
-		strings.Contains(strings.ToLower(status.Phase), "error")
-	status.IsReady = status.Ready == status.Total && status.Total > 0 && !status.IsFailed
-	status.IsProvisioning = status.Exists && !status.IsReady && !status.IsFailed
-
-	if status.IsFailed {
-		status.FailureReason = status.Phase
-	}
-
-	return status, nil
 }
 
 func (c *Client) GetNamespaceStatus(ctx context.Context, instanceID string) (*NamespaceStatus, error) {

@@ -56,7 +56,7 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	clusterStatus, err := b.client.GetClusterStatus(context.Background(), instanceId)
+	clusterStatus, err := b.client.GetCluster(context.Background(), instanceId)
 	if err != nil {
 		logger.Error("failed to check cluster status for %s: %v", instanceId, err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -66,10 +66,10 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 		logger.Info("instance %s already exists, checking compatibility", instanceId)
 		instances, cpu, memory, storage := catalog.PlanSpec(req.PlanID)
 
-		if clusterStatus.SpecInstances == instances &&
-			clusterStatus.SpecCPU == cpu &&
-			clusterStatus.SpecMemory == memory &&
-			clusterStatus.SpecStorage == storage {
+		if clusterStatus.Instances == instances &&
+			clusterStatus.CPU == cpu &&
+			clusterStatus.Memory == memory &&
+			clusterStatus.Storage == storage {
 
 			if clusterStatus.IsReady {
 				logger.Info("instance %s already provisioned and ready", instanceId)
@@ -136,7 +136,7 @@ func (b *Broker) GetInstance(c echo.Context) error {
 	}
 
 	logger.Debug("checking instance %s", instanceId)
-	clusterInfo, err := b.client.GetCluster(context.Background(), instanceId)
+	cluster, err := b.client.GetCluster(context.Background(), instanceId)
 	if err != nil {
 		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", instanceId)) {
 			logger.Debug("instance %s not found", instanceId)
@@ -146,8 +146,15 @@ func (b *Broker) GetInstance(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 	}
+	if !cluster.Exists {
+		logger.Debug("cluster for instance %s not found", instanceId)
+		return c.JSON(http.StatusNotFound, cluster)
+	}
+	if cluster.IsFailed {
+		logger.Warn("cluster for instance %s is in failed state: %s", instanceId, cluster.FailureReason)
+	}
 
-	return c.JSON(http.StatusOK, clusterInfo)
+	return c.JSON(http.StatusOK, cluster)
 }
 
 func (b *Broker) DeprovisionInstance(c echo.Context) error {
@@ -304,7 +311,7 @@ func (b *Broker) LastOperation(c echo.Context) error {
 		})
 	}
 
-	clusterStatus, err := b.client.GetClusterStatus(context.Background(), instanceID)
+	clusterStatus, err := b.client.GetCluster(context.Background(), instanceID)
 	if err != nil {
 		logger.Error("failed to check cluster status for %s: %v", instanceID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -336,28 +343,28 @@ func (b *Broker) LastOperation(c echo.Context) error {
 			response := c.Response()
 			response.Header().Set("Retry-After", "10")
 			return c.JSON(http.StatusOK, map[string]any{
-				"state":       "in progress",
+				"state": "in progress",
 				"description": fmt.Sprintf("Provisioning in progress - %d/%d instances ready, waiting for services",
-					clusterStatus.Ready, clusterStatus.Total),
+					clusterStatus.ReadyInstances, clusterStatus.Instances),
 			})
 		}
 
 		logger.Debug("cluster for instance %s is fully ready", instanceID)
 		return c.JSON(http.StatusOK, map[string]any{
-			"state":       "succeeded",
+			"state": "succeeded",
 			"description": fmt.Sprintf("Operation succeeded - %d/%d instances ready",
-				clusterStatus.Ready, clusterStatus.Total),
+				clusterStatus.ReadyInstances, clusterStatus.Instances),
 		})
 	}
 
 	logger.Debug("cluster for instance %s is provisioning: %d/%d instances ready",
-		instanceID, clusterStatus.Ready, clusterStatus.Total)
+		instanceID, clusterStatus.ReadyInstances, clusterStatus.Instances)
 	response := c.Response()
 	response.Header().Set("Retry-After", "10")
 	return c.JSON(http.StatusOK, map[string]any{
-		"state":       "in progress",
+		"state": "in progress",
 		"description": fmt.Sprintf("Operation in progress - %d/%d instances ready",
-			clusterStatus.Ready, clusterStatus.Total),
+			clusterStatus.ReadyInstances, clusterStatus.Instances),
 	})
 }
 
@@ -389,51 +396,44 @@ func (b *Broker) UpdateInstance(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	clusterStatus, err := b.client.GetClusterStatus(context.Background(), instanceId)
-	if err != nil {
-		logger.Error("failed to check cluster status for %s: %v", instanceId, err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-	if !clusterStatus.Exists {
-		logger.Warn("attempted to update non-existent instance %s", instanceId)
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "instance not found"})
-	}
-
-	existing, err := b.client.GetCluster(context.Background(), instanceId)
+	existingCluster, err := b.client.GetCluster(context.Background(), instanceId)
 	if err != nil {
 		logger.Error("failed to get instance %s: %v", instanceId, err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-
-	if len(existing.ServiceID) > 0 && existing.ServiceID != req.ServiceID {
-		logger.Warn("cannot change service_id for %s: %s -> %s", instanceId, existing.ServiceID, req.ServiceID)
+	if !existingCluster.Exists {
+		logger.Warn("attempted to update non-existent instance %s", instanceId)
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "instance not found"})
+	}
+	if len(existingCluster.ServiceID) > 0 && existingCluster.ServiceID != req.ServiceID {
+		logger.Warn("cannot change service_id for %s: %s -> %s", instanceId, existingCluster.ServiceID, req.ServiceID)
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
 			"error": "cannot change service_id",
 		})
 	}
 
 	newInstances, newCPU, newMemory, newStorage := catalog.PlanSpec(req.PlanID)
-	if newInstances < existing.Instances {
-		logger.Warn("cannot downgrade number of instances for %s: %d -> %d", instanceId, existing.Instances, newInstances)
+	if newInstances < existingCluster.Instances {
+		logger.Warn("cannot downgrade number of instances for %s: %d -> %d", instanceId, existingCluster.Instances, newInstances)
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
 			"error": "cannot decrease number of instances",
 		})
 	}
 
-	existingStorage := parseStorage(existing.Storage)
+	existingStorage := parseStorage(existingCluster.Storage)
 	newStorageBytes := parseStorage(newStorage)
 	if newStorageBytes < existingStorage {
-		logger.Warn("cannot downgrade storage for %s: %s -> %s", instanceId, existing.Storage, newStorage)
+		logger.Warn("cannot downgrade storage for %s: %s -> %s", instanceId, existingCluster.Storage, newStorage)
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
 			"error": "cannot decrease storage size",
 		})
 	}
 
-	if clusterStatus.SpecPlanID == req.PlanID && clusterStatus.IsReady {
+	if existingCluster.PlanID == req.PlanID && existingCluster.IsReady {
 		logger.Info("instance %s already at target plan %s and ready", instanceId, req.PlanID)
 		return c.JSON(http.StatusOK, map[string]any{})
 	}
-	if clusterStatus.SpecPlanID == req.PlanID && clusterStatus.IsProvisioning {
+	if existingCluster.PlanID == req.PlanID && existingCluster.IsProvisioning {
 		if acceptsIncomplete {
 			logger.Info("instance %s update to plan %s in progress", instanceId, req.PlanID)
 			return c.JSON(http.StatusAccepted, map[string]any{})
