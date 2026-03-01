@@ -123,7 +123,7 @@
                         <div class="select is-fullwidth">
                             <select x-model="newCluster.serviceId" @change="updateAvailablePlans()">
                                 <option value="">Select service...</option>
-                                <template x-for="service in catalog.services" :key="service.id">
+                                <template x-for="service in (catalog.services || [])" :key="service.id">
                                     <option :value="service.id" x-text="service.metadata.displayName"></option>
                                 </template>
                             </select>
@@ -589,7 +589,7 @@ function app() {
         },
         
         updateAvailablePlans() {
-            const service = this.catalog.services.find(s => s.id === this.newCluster.serviceId);
+            const service = this.catalog.services?.find(s => s.id === this.newCluster.serviceId);
             this.availablePlans = service ? service.plans : [];
             this.newCluster.planId = '';
         },
