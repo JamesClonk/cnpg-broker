@@ -679,17 +679,17 @@ createApp({
         },
         
         getStatusClass(cluster) {
-            if (cluster.is_ready) return 'has-background-success-light';
-            if (cluster.is_failed) return 'has-background-danger-light';
-            if (cluster.is_provisioning) return 'has-background-warning-light';
-            return 'has-background-light';
+            if (cluster.is_ready) return 'has-background-success';
+            if (cluster.is_failed) return 'has-background-danger';
+            if (cluster.is_provisioning) return 'has-background-warning';
+            return 'has-background';
         },
         
         getStatusIcon(cluster) {
-            if (cluster.is_ready) return '<i class="fas fa-check-circle has-text-success"></i>';
-            if (cluster.is_failed) return '<i class="fas fa-times-circle has-text-danger"></i>';
-            if (cluster.is_provisioning) return '<i class="fas fa-spinner fa-pulse has-text-warning"></i>';
-            return '<i class="fas fa-question-circle"></i>';
+            if (cluster.is_ready) return '<i class="fas fa-check-circle has-text-success-light"></i>';
+            if (cluster.is_failed) return '<i class="fas fa-times-circle has-text-danger-light"></i>';
+            if (cluster.is_provisioning) return '<i class="fas fa-spinner fa-pulse has-text-warning-light"></i>';
+            return '<i class="fas fa-question-circle-light"></i>';
         },
         
         async copyToClipboard(text) {
