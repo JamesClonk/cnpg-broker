@@ -664,11 +664,11 @@ createApp({
         
         generateUUID() {
             const uuid = self.crypto.randomUUID();
-            const firstChar = uuid.charAt(0);
-            if (firstChar >= '0' && firstChar <= '9') {
-                const letters = 'abcdef';
-                return letters.charAt(Math.floor(Math.random() * 6)) + uuid.slice(1);
-            }
+            //const firstChar = uuid.charAt(0);
+            //if (firstChar >= '0' && firstChar <= '9') {
+            //    const letters = 'abcdef';
+            //    return letters.charAt(Math.floor(Math.random() * 6)) + uuid.slice(1);
+            //}
             return uuid;
         },
         

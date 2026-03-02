@@ -6,6 +6,7 @@ type ClusterInfo struct {
 	ServiceID      string            `json:"service_id"`
 	PlanID         string            `json:"plan_id"`
 	Namespace      string            `json:"namespace"`
+	Name           string            `json:"name"`
 	TotalInstances int64             `json:"total_instances"`
 	ReadyInstances int64             `json:"ready_instances"`
 	Phase          string            `json:"phase"`
