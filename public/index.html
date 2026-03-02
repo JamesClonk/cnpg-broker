@@ -477,13 +477,13 @@ createApp({
                     throw new Error(error.error || 'Failed to create cluster');
                 }
                 
-                this.showCreateModal = false;
                 await this.loadClusters();
                 this.pollClusterStatus(this.newCluster.instanceId);
             } catch (err) {
                 this.error = 'Failed to create cluster: ' + err.message;
                 console.error(err);
             } finally {
+                this.showCreateModal = false;
                 this.creating = false;
             }
         },
