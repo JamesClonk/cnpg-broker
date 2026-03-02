@@ -100,13 +100,12 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 
 	// Cluster with specs according to planId
 	instances, cpu, memory, storage := catalog.PlanSpec(planId)
-	clusterName := fmt.Sprintf("db-%s",instanceId)
 	cluster := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "postgresql.cnpg.io/v1",
 			"kind":       "Cluster",
 			"metadata": map[string]any{
-				"name":      clusterName,
+				"name":      clusterName(instanceId),
 				"namespace": instanceId,
 				"labels": map[string]any{
 					"cnpg-broker.io/instance-id": instanceId,
@@ -146,7 +145,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 	// LoadBalancer service(s), create our own because we'll create multiple of them, with different ports
 	lbSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("lb-rw-%s", clusterName),
+			Name:      fmt.Sprintf("%s-lb-rw", clusterName(instanceId)),
 			Namespace: instanceId,
 		},
 		Spec: corev1.ServiceSpec{
@@ -159,7 +158,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 				},
 			},
 			Selector: map[string]string{
-				"cnpg.io/cluster":      clusterName,
+				"cnpg.io/cluster":      clusterName(instanceId),
 				"cnpg.io/instanceRole": "primary",
 			},
 		},
@@ -176,12 +175,12 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 				"apiVersion": "postgresql.cnpg.io/v1",
 				"kind":       "Pooler",
 				"metadata": map[string]any{
-					"name":      fmt.Sprintf("pooler-%s", clusterName),
+					"name":      fmt.Sprintf("%s-pooler", clusterName(instanceId)),
 					"namespace": instanceId,
 				},
 				"spec": map[string]any{
 					"cluster": map[string]any{
-						"name": clusterName,
+						"name": clusterName(instanceId),
 					},
 					"instances": instances,
 					"type":      "rw",
@@ -199,7 +198,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 		// LoadBalancer service for Pooler
 		lbSvc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("lb-pooler-%s", clusterName),
+				Name:      fmt.Sprintf("%s-lb-pooler", clusterName(instanceId)),
 				Namespace: instanceId,
 			},
 			Spec: corev1.ServiceSpec{
@@ -212,7 +211,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 					},
 				},
 				Selector: map[string]string{
-					"cnpg.io/poolerName": fmt.Sprintf("pooler-%s", clusterName),
+					"cnpg.io/poolerName": fmt.Sprintf("%s-pooler", clusterName(instanceId)),
 				},
 			},
 		}
@@ -226,15 +225,14 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 }
 
 func (c *Client) GetCluster(ctx context.Context, instanceId string) (*ClusterInfo, error) {
-	clusterName := fmt.Sprintf("db-%s",instanceId)
 	info := &ClusterInfo{
 		Exists:     false,
 		InstanceID: instanceId,
 		Namespace:  instanceId,
-		Name:  clusterName,
+		Name:  clusterName(instanceId),
 	}
 
-	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, clusterName, metav1.GetOptions{})
+	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, clusterName(instanceId), metav1.GetOptions{})
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return info, nil
@@ -304,8 +302,7 @@ func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
 }
 
 func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, instances int64, cpu, memory, storage string) error {
-	clusterName := fmt.Sprintf("db-%s",instanceId)
-	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, clusterName, metav1.GetOptions{})
+	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, clusterName(instanceId), metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -345,13 +342,13 @@ func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, i
 	}
 
 	// scale out PVC if necessary
-	pvcs, err := c.clientset.CoreV1().PersistentVolumeClaims(clusterName).List(ctx, metav1.ListOptions{})
+	pvcs, err := c.clientset.CoreV1().PersistentVolumeClaims(clusterName(instanceId)).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 	for _, pvc := range pvcs.Items {
 		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse(storage)
-		_, err = c.clientset.CoreV1().PersistentVolumeClaims(clusterName).Update(ctx, &pvc, metav1.UpdateOptions{})
+		_, err = c.clientset.CoreV1().PersistentVolumeClaims(clusterName(instanceId)).Update(ctx, &pvc, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -362,9 +359,8 @@ func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, i
 
 func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[string]string, error) {
 	logger.Debug("collecting credentials for instance %s", instanceId)
-	clusterName := fmt.Sprintf("db-%s",instanceId)
 
-	secretName := fmt.Sprintf("%s-app", clusterName)
+	secretName := fmt.Sprintf("%s-app", clusterName(instanceId))
 	secret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -384,14 +380,14 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		"password":    password,
 		"uri":         fqdnUri,
 		"jdbc_uri":    jdbcUri,
-		"ro_host":     fmt.Sprintf("%s-ro", clusterName),
-		"ro_uri":      fmt.Sprintf("postgresql://%s:%s@%s-ro.%s.svc.cluster.local:5432/%s", username, password, clusterName, instanceId, database),
-		"ro_jdbc_uri": fmt.Sprintf("jdbc:postgresql://%s-ro.%s.svc.cluster.local:5432/%s?password=%s&user=%s", clusterName, instanceId, database, password, username),
+		"ro_host":     fmt.Sprintf("%s-ro", clusterName(instanceId)),
+		"ro_uri":      fmt.Sprintf("postgresql://%s:%s@%s-ro.%s.svc.cluster.local:5432/%s", username, password, clusterName(instanceId), instanceId, database),
+		"ro_jdbc_uri": fmt.Sprintf("jdbc:postgresql://%s-ro.%s.svc.cluster.local:5432/%s?password=%s&user=%s", clusterName(instanceId), instanceId, database, password, username),
 	}
 
 	logger.Debug("retrieved base credentials for instance %s", instanceId)
 
-	caCertSecretName := fmt.Sprintf("%s-ca", clusterName)
+	caCertSecretName := fmt.Sprintf("%s-ca", clusterName(instanceId))
 	caCertSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, caCertSecretName, metav1.GetOptions{})
 	if err == nil {
 		if caCert, ok := caCertSecret.Data["ca.crt"]; ok {
@@ -400,7 +396,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		}
 	}
 
-	serverCertSecretName := fmt.Sprintf("%s-server", clusterName)
+	serverCertSecretName := fmt.Sprintf("%s-server", clusterName(instanceId))
 	serverCertSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, serverCertSecretName, metav1.GetOptions{})
 	if err == nil {
 		if tlsCert, ok := serverCertSecret.Data["tls.crt"]; ok {
@@ -414,7 +410,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		}
 	}
 
-	poolerCertSecretName := fmt.Sprintf("pooler-%s", clusterName)
+	poolerCertSecretName := fmt.Sprintf("%s-pooler", clusterName(instanceId))
 	poolerCertSecret, err := c.clientset.CoreV1().Secrets(instanceId).Get(ctx, poolerCertSecretName, metav1.GetOptions{})
 	if err == nil {
 		if tlsCert, ok := poolerCertSecret.Data["tls.crt"]; ok {
@@ -428,7 +424,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		}
 	}
 
-	lbSvcName := fmt.Sprintf("lb-rw-%s", clusterName)
+	lbSvcName := fmt.Sprintf("%s-lb-rw", clusterName(instanceId))
 	lbSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx, lbSvcName, metav1.GetOptions{})
 	if err == nil && len(lbSvc.Status.LoadBalancer.Ingress) > 0 {
 		lbHost := lbSvc.Status.LoadBalancer.Ingress[0].IP
@@ -439,7 +435,7 @@ func (c *Client) GetCredentials(ctx context.Context, instanceId string) (map[str
 		credentials["lb_uri"] = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", username, password, lbHost, database)
 		credentials["lb_jdbc_uri"] = fmt.Sprintf("jdbc:postgresql://%s:5432/%s?password=%s&user=%s", lbHost, database, username, password)
 
-		poolerSvcName := fmt.Sprintf("lb-pooler-%s", clusterName)
+		poolerSvcName := fmt.Sprintf("%s-lb-pooler", clusterName(instanceId))
 		poolerSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx, poolerSvcName, metav1.GetOptions{})
 		if err == nil && len(poolerSvc.Status.LoadBalancer.Ingress) > 0 {
 			lbHost := poolerSvc.Status.LoadBalancer.Ingress[0].IP
@@ -476,9 +472,8 @@ func (c *Client) GetNamespaceStatus(ctx context.Context, instanceId string) (*Na
 }
 
 func (c *Client) CheckServicesReady(ctx context.Context, instanceId string) (bool, error) {
-	clusterName := fmt.Sprintf("db-%s",instanceId)
 	lbSvc, err := c.clientset.CoreV1().Services(instanceId).Get(ctx,
-		fmt.Sprintf("lb-rw-%s", clusterName), metav1.GetOptions{})
+		fmt.Sprintf("%s-lb-rw", clusterName(instanceId)), metav1.GetOptions{})
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return false, nil
