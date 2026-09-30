@@ -32,6 +32,24 @@ The broker consists of several components:
 - CloudNativePG operator (1.28+)
 - RBAC permissions to manage namespaces, clusters, services, secrets, poolers
 
+## TODO
+
+These custom API endpoints for backups/restores still need to be implemented:
+```
+GET /v2/service_instances/:instance_id/backups (list all backups) - synchronous
+PUT /v2/service_instances/:instance_id/backup/:backup_id (create a ondemand backup) - asynchronous
+DELETE /v2/service_instances/:instance_id/backup/:backup_id (delete a backup) - synchronous
+POST /v2/service_instances/:instance_id/backup/:backup_id/restore (restore a backup) - asynchronous
+GET /v2/service_instances/:instance_id/backup/:backup_id/last_operation (query last-operation state of backup/restore) - synchronous
+GET /v2/service_instances/:instance_id/backup/:backup_id (download a backup) - synchronous
+DELETE /v2/service_instances/:instance_id/backups (delete all backups) - synchronous
+
+GET /v2/service_instances/:instance_id/scheduled_backups (list all scheduled backups) - synchronous
+PUT /v2/service_instances/:instance_id/scheduled_backup/:schedule_id (create a scheduled backup) - synchronous
+PATCH /v2/service_instances/:instance_id/scheduled_backup/:schedule_id (modify a scheduled backup) - synchronous
+DELETE /v2/service_instances/:instance_id/scheduled_backup/:schedule_id (delete a scheduled backup) - synchronous
+```
+
 ## Quick Start
 
 ### Local Development

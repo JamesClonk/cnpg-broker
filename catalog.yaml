@@ -28,6 +28,7 @@ services:
     free: false
     metadata:
       instances: 1
+      pooler_instances: 0
       cpu: 500m
       memory: 512Mi
       storage: 1Gi
@@ -39,6 +40,7 @@ services:
     free: false
     metadata:
       instances: 1
+      pooler_instances: 0
       cpu: "1"
       memory: 1Gi
       storage: 5Gi
@@ -50,11 +52,132 @@ services:
     free: false
     metadata:
       instances: 1
+      pooler_instances: 0
       cpu: "2"
       memory: 2Gi
       storage: 10Gi
       highAvailability: false
       sla: false
+
+- id: 073e3913-418f-44a8-bc3e-1b90e6fd59d3
+  name: postgresql-dev-db-with-pool
+  description: CloudNativePG PostgreSQL development database, with connection pool
+  bindable: true
+  instances_retrievable: true
+  bindings_retrievable: true
+  plan_updateable: true
+  tags:
+  - cnpg
+  - cloudnativepg
+  - postgres
+  - postgresql
+  - database
+  - relational
+  - rdbms
+  metadata:
+    displayName: CloudNativePG - development databases, with connection pool
+    imageUrl: https://cloudnative-pg.io/logo/large_logo.svg
+    longDescription: CloudNativePG is the Kubernetes operator that covers the full lifecycle of a highly available PostgreSQL database cluster with a primary/standby architecture, using native streaming replication.
+    providerDisplayName: CloudNativePG
+    documentationUrl: https://cloudnative-pg.io/docs/
+    supportUrl: https://cloudnative-pg.io/
+  plans:
+  - id: 998d9093-c084-4ba1-9fb7-b2ab61b4d460
+    name: dev-small
+    description: 1 instance, 1 pooler, 0.5 CPU, 512MB RAM, 1GB storage, no SLA
+    free: false
+    metadata:
+      instances: 1
+      pooler_instances: 1
+      cpu: 500m
+      memory: 512Mi
+      storage: 1Gi
+      highAvailability: false
+      sla: false
+  - id: 789d8d3f-e492-418a-bae4-824b206a458f
+    name: dev-medium
+    description: 1 instance, 1 pooler, 1 CPU, 1GB RAM, 5GB storage, no SLA
+    free: false
+    metadata:
+      instances: 1
+      pooler_instances: 1
+      cpu: "1"
+      memory: 1Gi
+      storage: 5Gi
+      highAvailability: false
+      sla: false
+  - id: 41b3d066-1639-4871-843d-8c1af23a9072
+    name: dev-large
+    description: 1 instance, 1 pooler, 2 CPU, 2GB RAM, 10GB storage, no SLA
+    free: false
+    metadata:
+      instances: 1
+      pooler_instances: 1
+      cpu: "2"
+      memory: 2Gi
+      storage: 10Gi
+      highAvailability: false
+      sla: false
+
+- id: 1c13b439-4b0f-4444-b86e-8e76c100459d
+  name: postgresql-ha-cluster-without-pool
+  description: CloudNativePG PostgreSQL database cluster, without connection pool
+  bindable: true
+  instances_retrievable: true
+  bindings_retrievable: true
+  plan_updateable: true
+  tags:
+  - cnpg
+  - cloudnativepg
+  - postgres
+  - postgresql
+  - database
+  - relational
+  - rdbms
+  metadata:
+    displayName: CloudNativePG - database clusters, without connection pool
+    imageUrl: https://cloudnative-pg.io/logo/large_logo.svg
+    longDescription: CloudNativePG is the Kubernetes operator that covers the full lifecycle of a highly available PostgreSQL database cluster with a primary/standby architecture, using native streaming replication.
+    providerDisplayName: CloudNativePG
+    documentationUrl: https://cloudnative-pg.io/docs/
+    supportUrl: https://cloudnative-pg.io/
+  plans:
+  - id: 5f952d87-0c96-49e4-af2c-56aa17e0e62a
+    name: small
+    description: 2 instances, 0.5 CPU, 512MB RAM, 1GB storage
+    free: false
+    metadata:
+      instances: 2
+      pooler_instances: 0
+      cpu: 500m
+      memory: 512Mi
+      storage: 1Gi
+      highAvailability: true
+      sla: true
+  - id: 354eaea9-5c70-4bb5-9fe3-8583c0764c8a
+    name: medium
+    description: 3 instances, 1 CPU, 1GB RAM, 5GB storage
+    free: false
+    metadata:
+      instances: 3
+      pooler_instances: 0
+      cpu: "1"
+      memory: 1Gi
+      storage: 5Gi
+      highAvailability: true
+      sla: true
+  - id: 1f08331a-3e06-4b1c-8956-4597abcbc48b
+    name: large
+    description: 3 instances, 2 CPU, 2GB RAM, 10GB storage
+    free: false
+    metadata:
+      instances: 3
+      pooler_instances: 0
+      cpu: "2"
+      memory: 2Gi
+      storage: 10Gi
+      highAvailability: true
+      sla: true
 
 - id: a651d10f-25ab-4a75-99a6-520c0abbe2ae
   name: postgresql-ha-cluster
@@ -85,6 +208,7 @@ services:
     free: false
     metadata:
       instances: 2
+      pooler_instances: 2
       cpu: 500m
       memory: 512Mi
       storage: 1Gi
@@ -96,6 +220,7 @@ services:
     free: false
     metadata:
       instances: 3
+      pooler_instances: 2
       cpu: "1"
       memory: 1Gi
       storage: 5Gi
@@ -107,6 +232,7 @@ services:
     free: false
     metadata:
       instances: 3
+      pooler_instances: 3
       cpu: "2"
       memory: 2Gi
       storage: 10Gi
