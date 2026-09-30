@@ -45,6 +45,7 @@ type Plan struct {
 
 type PlanMetadata struct {
 	Instances        int64  `yaml:"instances" json:"instances"`
+	PoolerInstances  int64  `yaml:"pooler_instances" json:"pooler_instances"`
 	CPU              string `yaml:"cpu" json:"cpu"`
 	Memory           string `yaml:"memory" json:"memory"`
 	Storage          string `yaml:"storage" json:"storage"`
@@ -67,18 +68,18 @@ func GetCatalog() map[string]any {
 	return map[string]any{"services": catalog.Services}
 }
 
-func PlanSpec(planId string) (int64, string, string, string) {
+func PlanSpec(planId string) (int64, int64, string, string, string) {
 	for _, svc := range catalog.Services {
 		for _, plan := range svc.Plans {
 			if plan.ID == planId {
-				logger.Debug("found plan %s: instances=%d, cpu=%s, memory=%s, storage=%s",
-					planId, plan.Metadata.Instances, plan.Metadata.CPU,
+				logger.Debug("found plan %s: instances=%d, pooler=%d, cpu=%s, memory=%s, storage=%s",
+					planId, plan.Metadata.Instances, plan.Metadata.PoolerInstances, plan.Metadata.CPU,
 					plan.Metadata.Memory, plan.Metadata.Storage)
-				return plan.Metadata.Instances, plan.Metadata.CPU,
+				return plan.Metadata.Instances, plan.Metadata.PoolerInstances, plan.Metadata.CPU,
 					plan.Metadata.Memory, plan.Metadata.Storage
 			}
 		}
 	}
 	logger.Warn("plan %s not found, using defaults", planId)
-	return 3, "4", "4Gi", "250Gi"
+	return 3, 2, "4", "4Gi", "250Gi"
 }

@@ -99,7 +99,7 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 	}
 
 	// Cluster with specs according to planId
-	instances, cpu, memory, storage := catalog.PlanSpec(planId)
+	instances, poolerInstances, cpu, memory, storage := catalog.PlanSpec(planId)
 	cluster := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "postgresql.cnpg.io/v1",
@@ -168,8 +168,8 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 		return "", err
 	}
 
-	// Pooler for HA clusters
-	if instances > 1 {
+	// Pooler - connection pools
+	if poolerInstances > 0 {
 		pooler := &unstructured.Unstructured{
 			Object: map[string]any{
 				"apiVersion": "postgresql.cnpg.io/v1",
@@ -177,12 +177,22 @@ func (c *Client) CreateCluster(ctx context.Context, instanceId, serviceId, planI
 				"metadata": map[string]any{
 					"name":      fmt.Sprintf("%s-pooler", clusterName(instanceId)),
 					"namespace": instanceId,
+					"labels": map[string]any{
+						"cnpg-broker.io/instance-id": instanceId,
+						"cnpg-broker.io/service-id":  serviceId,
+						"cnpg-broker.io/plan-id":     planId,
+					},
+					"annotations": map[string]any{
+						"cnpg-broker.io/instance-id": instanceId,
+						"cnpg-broker.io/service-id":  serviceId,
+						"cnpg-broker.io/plan-id":     planId,
+					},
 				},
 				"spec": map[string]any{
 					"cluster": map[string]any{
 						"name": clusterName(instanceId),
 					},
-					"instances": instances,
+					"instances": poolerInstances,
 					"type":      "rw",
 					"pgbouncer": map[string]any{
 						"poolMode": "session",
@@ -301,7 +311,7 @@ func (c *Client) DeleteCluster(ctx context.Context, instanceId string) error {
 	return c.clientset.CoreV1().Namespaces().Delete(ctx, instanceId, metav1.DeleteOptions{})
 }
 
-func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, instances int64, cpu, memory, storage string) error {
+func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, instances, poolerInstances int64, cpu, memory, storage string) error {
 	cluster, err := c.dynamic.Resource(clusterResource).Namespace(instanceId).Get(ctx, clusterName(instanceId), metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -353,6 +363,8 @@ func (c *Client) UpdateCluster(ctx context.Context, instanceId, planId string, i
 			return err
 		}
 	}
+
+	// TODO: update pooler if poolerInstances has changed
 
 	return nil
 }

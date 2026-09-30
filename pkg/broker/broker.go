@@ -64,9 +64,10 @@ func (b *Broker) ProvisionInstance(c echo.Context) error {
 
 	if clusterStatus.Exists {
 		logger.Info("instance %s already exists, checking compatibility", instanceId)
-		instances, cpu, memory, storage := catalog.PlanSpec(req.PlanID)
+		instances, poolerInstances, cpu, memory, storage := catalog.PlanSpec(req.PlanID)
 
 		if clusterStatus.Instances == instances &&
+			clusterStatus.PoolerInstances == poolerInstances &&
 			clusterStatus.CPU == cpu &&
 			clusterStatus.Memory == memory &&
 			clusterStatus.Storage == storage {
@@ -412,7 +413,7 @@ func (b *Broker) UpdateInstance(c echo.Context) error {
 		})
 	}
 
-	newInstances, newCPU, newMemory, newStorage := catalog.PlanSpec(req.PlanID)
+	newInstances, newPoolerInstances, newCPU, newMemory, newStorage := catalog.PlanSpec(req.PlanID)
 	if newInstances < existingCluster.Instances {
 		logger.Warn("cannot downgrade number of instances for %s: %d -> %d", instanceId, existingCluster.Instances, newInstances)
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
@@ -453,7 +454,7 @@ func (b *Broker) UpdateInstance(c echo.Context) error {
 
 	logger.Info("starting async update for instance %s to plan %s", instanceId, req.PlanID)
 	if err := b.client.UpdateCluster(context.Background(), instanceId, req.PlanID,
-		newInstances, newCPU, newMemory, newStorage); err != nil {
+		newInstances, newPoolerInstances, newCPU, newMemory, newStorage); err != nil {
 		logger.Error("failed to start update for instance %s: %v", instanceId, err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
